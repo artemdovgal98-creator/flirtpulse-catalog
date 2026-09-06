@@ -51,9 +51,14 @@ export async function POST(request: Request) {
     const uploaded: Array<{ name: string; url: string }> = [];
 
     for (const file of files) {
+      // Totalum derives the file id from the upload name, so two cards uploading
+      // "photo.jpg" would overwrite each other — give every file a unique name.
+      const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const uniqueName = `showcase-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+
       // NOTE: the global FormData is required here — never import the `form-data` package.
       const payload = new FormData();
-      payload.append("file", file, file.name || `showcase-${Date.now()}.jpg`);
+      payload.append("file", file, uniqueName);
 
       const result = await totalumSdk.files.uploadFile(payload);
       if (result.errors) console.error("[API /admin/upload] sdk errors:", result.errors);

@@ -34,6 +34,8 @@ export interface AdminOffer extends Offer {
   slug?: string;
   offer_url?: string;
   network?: string;
+  /** "yes" once the administrator has saved the card by hand. */
+  admin_edited?: string;
 }
 
 export interface Favorite {

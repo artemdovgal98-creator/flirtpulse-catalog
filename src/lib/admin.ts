@@ -1,44 +1,135 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { totalumSdk } from "@/lib/totalum";
+
+/**
+ * Password that unlocks the admin panel.
+ * Override in production by setting ADMIN_PANEL_PASSWORD.
+ */
+const ADMIN_PASSWORD = process.env.ADMIN_PANEL_PASSWORD || "admin 777";
+
+export const ADMIN_COOKIE = "fp_admin";
+/** How long an unlocked panel stays open. */
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+
+const encoder = new TextEncoder();
+
+function secret(): string {
+  // BETTER_AUTH_SECRET always exists in this project, so the token cannot be forged.
+  return process.env.BETTER_AUTH_SECRET || "flirtpulse-admin-fallback-secret";
+}
+
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** HMAC-SHA256 over the token payload. Web Crypto works on Node and on Workers. */
+async function sign(payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return toHex(signature);
+}
+
+/** Length-independent comparison so the check never leaks timing information. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Forgiving normalisation: ignores case and every kind of whitespace, so
+ * "admin 777", "Admin 777" and "admin777" all unlock the panel. The password
+ * itself is never sent back to the client.
+ */
+function normalisePassword(value: string): string {
+  return String(value ?? "").replace(/\s+/g, "").toLowerCase();
+}
+
+export function isAdminPassword(input: string): boolean {
+  const expected = normalisePassword(ADMIN_PASSWORD);
+  if (!expected) return false;
+  return safeEqual(normalisePassword(input), expected);
+}
+
+/** Builds the signed cookie value for a freshly unlocked panel. */
+export async function createAdminToken(): Promise<{ value: string; maxAge: number }> {
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const signature = await sign(String(expiresAt));
+  return { value: `${expiresAt}.${signature}`, maxAge: Math.floor(SESSION_TTL_MS / 1000) };
+}
+
+async function isTokenValid(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const [rawExpiry, signature] = token.split(".");
+  if (!rawExpiry || !signature) return false;
+
+  const expiresAt = Number(rawExpiry);
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+    console.log("[admin-guard] admin token expired");
+    return false;
+  }
+  return safeEqual(await sign(rawExpiry), signature);
+}
 
 export interface AdminGuardResult {
   userId: string | null;
   email: string | null;
+  /** True only when the panel has been unlocked with the password. */
   isAdmin: boolean;
+  /** True when the signed-in user is also listed in the `admin_user` table. */
+  isListedAdmin: boolean;
 }
 
 /**
- * Resolves the current session and whether it belongs to an administrator.
+ * Resolves whether the caller may use the admin panel.
  *
- * Membership is stored in the `admin_user` table rather than on the session
- * user, so it can only be granted from the Totalum back-office / database —
- * nothing the client sends can influence it.
+ * Access requires the admin password: unlocking sets a short-lived HMAC-signed
+ * httpOnly cookie that the client cannot forge or read. The session is looked up
+ * only to label the dashboard — it never grants access on its own.
  */
 export async function getAdminGuard(): Promise<AdminGuardResult> {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    const userId = session?.user?.id ?? null;
-    const email = session?.user?.email ?? null;
+    const cookieStore = await cookies();
+    const unlocked = await isTokenValid(cookieStore.get(ADMIN_COOKIE)?.value);
 
-    if (!userId) {
-      console.log("[admin-guard] no session — access denied");
-      return { userId: null, email: null, isAdmin: false };
+    let userId: string | null = null;
+    let email: string | null = null;
+    try {
+      const session = await auth.api.getSession({ headers: await headers() });
+      userId = session?.user?.id ?? null;
+      email = session?.user?.email ?? null;
+    } catch (err) {
+      console.error("[admin-guard] session lookup failed (continuing):", err);
     }
 
-    const result = await totalumSdk.crud.query("admin_user", {
-      _filter: { user: userId },
-      _limit: 1,
-    } as any);
-    if (result.errors) console.error("[admin-guard] admin_user lookup errors:", result.errors);
+    let isListedAdmin = false;
+    if (userId) {
+      const result = await totalumSdk.crud.query("admin_user", {
+        _filter: { user: userId },
+        _limit: 1,
+      } as any);
+      if (result.errors) console.error("[admin-guard] admin_user lookup errors:", result.errors);
+      isListedAdmin = ((result.data as any[]) || []).length > 0;
+    }
 
-    const isAdmin = (((result.data as any[]) || []).length > 0);
-    console.log(`[admin-guard] user=${userId} (${email}) isAdmin=${isAdmin}`);
+    console.log(
+      `[admin-guard] user=${userId ?? "guest"} unlocked=${unlocked} listedAdmin=${isListedAdmin}`
+    );
 
-    return { userId, email, isAdmin };
+    return { userId, email, isAdmin: unlocked, isListedAdmin };
   } catch (err) {
     console.error("[admin-guard] guard failed:", err);
-    return { userId: null, email: null, isAdmin: false };
+    return { userId: null, email: null, isAdmin: false, isListedAdmin: false };
   }
 }

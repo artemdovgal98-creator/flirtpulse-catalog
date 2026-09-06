@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Plus, Pencil, Trash2, Save, X, Search, Loader2, ImagePlus, Link2, Eye, EyeOff, Star,
+  Plus, Pencil, Trash2, Save, X, Search, Loader2, ImagePlus, Link2, Link2Off, Eye, EyeOff, Star,
+  Image as ImageIcon, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -15,6 +16,10 @@ import { cn } from "@/lib/utils";
 
 const MAX_IMAGES = 3;
 const MAX_BYTES = 10 * 1024 * 1024;
+const PAGE_SIZE = 30;
+
+/** Which slice of the catalog the list shows. */
+type Scope = "all" | "custom" | "edited";
 
 interface FormState {
   _id?: string;
@@ -45,38 +50,82 @@ function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-/** Full CRUD for admin-managed showcase cards, including image uploads. */
+interface ListResponse {
+  items: AdminOffer[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+/**
+ * Full CRUD for every showcase in the catalog — the seeded cards included.
+ * The admin can attach a tracking link, upload up to 3 photos and save; the
+ * catalog then redirects clicks through `/go/{id}` to that link.
+ */
 export function ShowcaseManager() {
   const { t } = useI18n();
   const [items, setItems] = useState<AdminOffer[]>([]);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [query, setQuery] = useState("");
-  const [onlyCustom, setOnlyCustom] = useState(true);
+  const [scope, setScope] = useState<Scope>("all");
+  const [category, setCategory] = useState("");
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const buildParams = useCallback(
+    (offset: number) => {
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (scope === "custom") params.set("custom", "1");
+      if (scope === "edited") params.set("edited", "1");
+      if (category) params.set("category", category);
+      params.set("offset", String(offset));
+      params.set("limit", String(PAGE_SIZE));
+      return params;
+    },
+    [query, scope, category]
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (query.trim()) params.set("q", query.trim());
-    if (onlyCustom) params.set("custom", "1");
-    const res = await api.get<{ items: AdminOffer[] }>(`/api/admin/showcases?${params}`);
+    const res = await api.get<ListResponse>(`/api/admin/showcases?${buildParams(0)}`);
     if (res.ok && res.data) {
       setItems(res.data.items);
-      console.log(`[admin] loaded ${res.data.items.length} showcases`);
+      setTotal(res.data.total);
+      setHasMore(res.data.hasMore);
+      console.log(`[admin] loaded ${res.data.items.length} of ${res.data.total} showcases`);
     } else {
       console.error("[admin] showcase list failed:", res.error);
       toast.error(String(res.error ?? "Error"));
     }
     setLoading(false);
-  }, [query, onlyCustom]);
+  }, [buildParams]);
 
   useEffect(() => {
     const timer = window.setTimeout(load, 300);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const res = await api.get<ListResponse>(`/api/admin/showcases?${buildParams(items.length)}`);
+    setLoadingMore(false);
+    if (!res.ok || !res.data) {
+      console.error("[admin] load more failed:", res.error);
+      toast.error(String(res.error ?? "Error"));
+      return;
+    }
+    setItems((prev) => [...prev, ...res.data!.items]);
+    setTotal(res.data.total);
+    setHasMore(res.data.hasMore);
+    console.log(`[admin] loaded ${res.data.items.length} more showcases`);
+  }
 
   function startCreate() {
     setForm({ ...EMPTY });
@@ -155,8 +204,8 @@ export function ShowcaseManager() {
     };
 
     const res = form._id
-      ? await api.put(`/api/admin/showcases/${form._id}`, body)
-      : await api.post("/api/admin/showcases", body);
+      ? await api.put<{ item: AdminOffer }>(`/api/admin/showcases/${form._id}`, body)
+      : await api.post<{ item: AdminOffer }>("/api/admin/showcases", body);
     setSaving(false);
 
     if (!res.ok) {
@@ -165,7 +214,15 @@ export function ShowcaseManager() {
       return;
     }
     toast.success(form._id ? t("admin_updated") : t("admin_created"));
-    console.log(`[admin] showcase saved: ${form.name}`);
+    console.log(`[admin] showcase saved: ${form.name} link=${form.offer_url || "-"}`);
+
+    const saved = (res.data as { item?: AdminOffer } | undefined)?.item;
+    if (form._id && saved) {
+      // Patch the row in place so the current page (and scroll position) survives.
+      setItems((prev) => prev.map((it) => (it._id === form._id ? { ...it, ...saved } : it)));
+      setForm(null);
+      return;
+    }
     setForm(null);
     load();
   }
@@ -431,18 +488,44 @@ export function ShowcaseManager() {
             className="w-full rounded-full border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-fuchsia-400/60"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setOnlyCustom((v) => !v)}
-          className={cn(
-            "rounded-full border px-4 py-2.5 text-xs font-bold transition active:scale-95",
-            onlyCustom
-              ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-white"
-              : "border-white/10 bg-white/5 text-white/50 hover:text-white"
-          )}
-        >
-          {onlyCustom ? "Custom" : "All"}
-        </button>
+        <div className="relative">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="appearance-none rounded-full border border-white/10 bg-white/[0.04] py-2.5 pl-4 pr-9 text-xs font-bold text-white outline-none transition focus:border-fuchsia-400/60"
+          >
+            <option value="" className="bg-[#140f24]">{t("admin_all_categories")}</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c} className="bg-[#140f24]">
+                {t(`cat_${c}`)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(["all", "custom", "edited"] as Scope[]).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setScope(s)}
+            className={cn(
+              "rounded-full border px-4 py-1.5 text-xs font-bold transition active:scale-95",
+              scope === s
+                ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-white"
+                : "border-white/10 bg-white/5 text-white/50 hover:text-white"
+            )}
+          >
+            {t(`admin_scope_${s}`)}
+          </button>
+        ))}
+        {!loading && (
+          <span className="ml-auto text-[11px] font-bold text-white/35">
+            {items.length} {t("admin_of")} {total}
+          </span>
+        )}
       </div>
 
       {/* List */}
@@ -470,9 +553,31 @@ export function ShowcaseManager() {
                         {t(`cat_${c}`)}
                       </span>
                     ))}
-                    <span>· {item.click_count ?? 0} {t("admin_clicks").toLowerCase()}</span>
+                    <span>· {item.click_count ?? 0} {t("admin_clicks_short")}</span>
                     {item.status !== "active" && (
                       <span className="text-amber-300/70">· {t("admin_hidden")}</span>
+                    )}
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-bold">
+                    {item.offer_url ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-emerald-200">
+                        <Link2 className="h-3 w-3" />
+                        {t("admin_has_link")}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-white/35">
+                        <Link2Off className="h-3 w-3" />
+                        {t("admin_no_link")}
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 text-white/40">
+                      <ImageIcon className="h-3 w-3" />
+                      {(item.images ?? []).length}/{MAX_IMAGES} {t("admin_photos")}
+                    </span>
+                    {item.admin_edited === "yes" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-fuchsia-200">
+                        {t("admin_scope_edited")}
+                      </span>
                     )}
                   </p>
                 </div>
@@ -496,6 +601,18 @@ export function ShowcaseManager() {
             );
           })}
         </ul>
+      )}
+
+      {hasMore && !loading && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="mx-auto flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-6 py-2.5 text-sm font-bold text-white/75 transition hover:border-fuchsia-400/40 hover:text-white active:scale-95 disabled:opacity-60"
+        >
+          {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t("admin_load_more")}
+        </button>
       )}
     </section>
   );

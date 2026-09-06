@@ -36,7 +36,7 @@ Four sections, defined once in `CATEGORIES` (`src/lib/catalog.ts`) and translate
 | Table | Purpose | Relations |
 |---|---|---|
 | `user`, `session`, `account`, `verification` | Better Auth | `session.user_id`, `account.user_id` → `user` (manyToOne) |
-| `admin_user` | **Grants admin access** — one row per administrator | `user` → `user` (manyToOne) |
+| `admin_user` | Optional label for known administrators (does **not** grant access) | `user` → `user` (manyToOne) |
 | `offer` | 264 catalog cards | — |
 | `favorite` | Saved services | `user` → `user`, `offer` → `offer` (manyToOne) |
 | `user_preference` | Language + favourite categories | `user` → `user` (manyToOne) |
@@ -45,15 +45,17 @@ Four sections, defined once in `CATEGORIES` (`src/lib/catalog.ts`) and translate
 | `visitor_session` | Presence heartbeat, used for "online now" | `user` → `user` (manyToOne) |
 
 `offer` fields: `name, slug, description, category[], geo[], tags, quality_score, image_url,
-images[] (file, multiple), launch_date, is_featured, is_custom, click_count, status` — plus the
-**server-only** `network` and `offer_url`.
+images[] (file, multiple), launch_date, is_featured, is_custom, admin_edited, click_count, status`
+— plus the **server-only** `network` and `offer_url`.
+
+`admin_edited: "yes"` marks a card the administrator has saved by hand. Those cards are skipped by
+the catalog seeder (see below), so a re-seed can never overwrite a tracking link or uploaded photo.
 
 ### Why admin access is not a `user.role` field
 
 The Totalum auth `user` table rejects duplicate values on custom columns, so a `role` column with
-a `"user"` default would make the **second** registration fail. Admin membership therefore lives in
-the separate `admin_user` table. To grant access, add a row with the user's `_id` and email
-(Totalum back office → Administrators); to revoke it, delete the row.
+a `"user"` default would make the **second** registration fail. Access is therefore a password
+(below); `admin_user` is only kept as a label for known administrators.
 
 ## Interface cleanliness (requirement 3)
 
@@ -81,11 +83,28 @@ Cards never contain the destination URL. `OfferCard` links to
 
 Analytics failures are logged but never block the redirect.
 
+## Admin panel password
+
+The dashboard sits behind a password gate on `/profile` (`src/components/admin/AdminGate.tsx`):
+
+| Step | What happens |
+|---|---|
+| The visitor opens the "Панель администратора" card and types the password | `POST /api/admin/unlock` |
+| Wrong password | 600 ms delay, then `401 WRONG_PASSWORD` — the field turns red |
+| Correct password | `fp_admin` httpOnly cookie: `"<expiry>.<HMAC-SHA256(expiry)>"`, valid 12 h |
+| "Закрыть панель" | `DELETE /api/admin/unlock` clears the cookie |
+
+- **Password:** `admin 777` (case-insensitive, spaces ignored, so `Admin777` also works).
+  Override it in production by setting `ADMIN_PANEL_PASSWORD`.
+- The cookie is signed with `BETTER_AUTH_SECRET` using Web Crypto, so it cannot be forged, and it
+  is `httpOnly` so client JavaScript cannot read it.
+- `getAdminGuard()` (`src/lib/admin.ts`) returns `isAdmin: true` **only** for a valid unlock cookie.
+  Signing in is not required and never grants access on its own.
+
 ## Admin dashboard (requirement 1)
 
-`/profile` renders `AdminStats` + `ShowcaseManager` when `/api/admin/me` reports `isAdmin: true`.
-Hiding the UI is presentation only — **every** admin route re-checks `getAdminGuard()` server-side
-and returns `403` otherwise.
+Once unlocked, `/profile` renders `AdminStats` + `ShowcaseManager`. Hiding the UI is presentation
+only — **every** admin route re-checks `getAdminGuard()` server-side and returns `403` otherwise.
 
 | Metric | Source |
 |---|---|
@@ -99,20 +118,34 @@ and returns `403` otherwise.
 `PresenceTracker` (mounted in `AppProviders`) pings `/api/track/heartbeat` every 30 s with a stable
 random visitor id from `localStorage` (`src/lib/visitor.ts`). The stats panel auto-refreshes every 15 s.
 
-## Showcase CRUD + media (requirement 4)
+## Showcase management — the whole catalog
 
-`ShowcaseManager` (`src/components/admin/ShowcaseManager.tsx`) supports unlimited custom cards:
+`ShowcaseManager` (`src/components/admin/ShowcaseManager.tsx`) manages **every** card in the
+catalog, the 264 seeded ones included — not just cards created in the panel:
 
-- title, description, categories (multi), countries (multi), tags, visible/hidden, featured
+- search across name / tags / description, a category filter, and three scopes:
+  **Все витрины · Созданные здесь · Изменённые**
+- paginated 30 at a time with "Показать ещё" and an `X из 264` counter
+- each row shows whether a tracking link is attached and how many photos it has
+- the editor covers title, description, categories (multi), countries (multi), tags,
+  visible/hidden, featured
 - **up to 3 images, 10 MB each** — validated in the browser *and* again in
-  `/api/admin/upload` (size, count and MIME type) before `totalumSdk.files.uploadFile`
-- the hidden tracking link, stored in `offer.offer_url`
+  `/api/admin/upload` (size, count and MIME type) before `totalumSdk.files.uploadFile`;
+  every upload gets a unique file name so two cards can never overwrite each other's photos
+- the hidden tracking link, stored in `offer.offer_url`. `normaliseShowcase` adds a missing
+  `https://` and rejects anything that is not http(s)
+- saving an existing card sets `admin_edited: "yes"` and patches the row in place, so the current
+  page and scroll position survive
+
+Uploaded photos take precedence over the stock `image_url` in `offerImages()`, so the catalog card
+shows them immediately, and clicks keep going through `/go/{id}` → the freshly saved link.
 
 | Route | Method | Notes |
 |---|---|---|
-| `/api/admin/me` | GET | `{ isAdmin, email }` |
+| `/api/admin/unlock` | POST / DELETE | Unlock with the password / lock again |
+| `/api/admin/me` | GET | `{ isAdmin, email, isListedAdmin }` |
 | `/api/admin/stats` | GET | Dashboard metrics |
-| `/api/admin/showcases` | GET / POST | List (with tracking links) / create |
+| `/api/admin/showcases` | GET / POST | Paginated list (`q, category, custom, edited, offset, limit`) / create |
 | `/api/admin/showcases/[id]` | PUT / DELETE | Update / delete |
 | `/api/admin/upload` | POST | Multipart, ≤3 files, ≤10 MB each |
 
@@ -140,7 +173,9 @@ non-route exports from `route.ts`.
 1. Append rows to the arrays in `src/data/offers.ts`.
 2. `POST /api/offers/seed` — **upserts by slug**: existing rows are rewritten with the current copy,
    new rows created, and seeded rows whose slug disappeared are deleted (`?purge=0` to keep them).
-   Cards created by the admin (`is_custom: "yes"`) are never touched.
+   Cards created by the admin (`is_custom: "yes"`) and cards edited in the panel
+   (`admin_edited: "yes"`) are skipped entirely — their slugs stay reserved, so the seeder neither
+   overwrites them nor recreates them as duplicates. The response reports how many were `skipped`.
 
 ## API routes
 
@@ -178,9 +213,10 @@ English elsewhere.
 
 ## Accounts
 
-| Email | Password | Admin |
-|---|---|---|
-| `artem.dovgal@flirtpulse.ai` | `flirtpulse2026` | ✅ |
-| `artemdovgal98@gmail.com` | (set at registration) | ✅ |
+| Email | Password |
+|---|---|
+| `artem.dovgal@flirtpulse.ai` | `flirtpulse2026` |
+| `artemdovgal98@gmail.com` | (set at registration) |
 
-Both are listed in the `admin_user` table. Log in and open **Профиль** to reach the dashboard.
+Accounts are only for favourites, preferences and chat history. The admin panel needs **no
+account** — open **Профиль**, tap "Панель администратора" and enter `admin 777`.

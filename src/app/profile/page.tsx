@@ -3,15 +3,14 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  LogOut, LogIn, UserPlus, Heart, Check, Shield, FileText, Info, Cookie, Mail, ChevronRight, Loader2, ShieldCheck,
+  LogOut, LogIn, UserPlus, Heart, Check, Shield, FileText, Info, Cookie, Mail, ChevronRight, Loader2,
 } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useI18n, LANGUAGES, type Lang } from "@/lib/i18n";
 import { useFavorites } from "@/components/FavoritesProvider";
 import { api } from "@/lib/api";
 import { CATEGORIES } from "@/lib/catalog";
-import { AdminStats } from "@/components/admin/AdminStats";
-import { ShowcaseManager } from "@/components/admin/ShowcaseManager";
+import { AdminGate } from "@/components/admin/AdminGate";
 import { cn } from "@/lib/utils";
 
 const LEGAL_LINKS = [
@@ -31,7 +30,6 @@ export default function ProfilePage() {
 
   const [prefCats, setPrefCats] = useState<string[]>(["dating", "webcam", "live_cams"]);
   const [signingOut, setSigningOut] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Local value first so the UI never flashes empty, then the stored preference.
@@ -42,17 +40,7 @@ export default function ProfilePage() {
       console.error("[profile] could not read local categories:", err);
     }
 
-    if (!session?.user) {
-      setIsAdmin(false);
-      return;
-    }
-
-    // The server decides — this only controls whether the panel is rendered.
-    api.get<{ isAdmin: boolean }>("/api/admin/me").then((res) => {
-      const admin = Boolean(res.ok && res.data?.isAdmin);
-      setIsAdmin(admin);
-      console.log("[profile] admin access:", admin);
-    });
+    if (!session?.user) return;
 
     api.get<{ preferred_categories?: string[] } | null>("/api/preferences").then((res) => {
       if (res.ok && res.data?.preferred_categories?.length) {
@@ -152,19 +140,10 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Admin dashboard — only rendered for administrators. Every underlying
-          API route re-checks the role server-side, so hiding the UI is not the
-          security boundary, it is just the presentation. */}
-      {isAdmin && (
-        <div className="mt-5">
-          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-300" />
-            <p className="text-xs font-bold text-emerald-200">{t("admin_open_panel")}</p>
-          </div>
-          <AdminStats />
-          <ShowcaseManager />
-        </div>
-      )}
+      {/* Admin dashboard behind the password gate. Every underlying API route
+          re-checks the signed unlock cookie server-side, so hiding the UI is not
+          the security boundary, it is just the presentation. */}
+      <AdminGate />
 
       {/* Saved offers counter */}
       <Link

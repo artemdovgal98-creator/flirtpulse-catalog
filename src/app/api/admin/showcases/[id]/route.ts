@@ -18,13 +18,18 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ ok: false, error: normalised.error }, { status: 400 });
     }
 
-    const updated = await totalumSdk.crud.editRecordById("offer", id, normalised.value as any);
+    // Mark the card as hand-managed so re-seeding the catalog never overwrites it.
+    const payload = { ...normalised.value, admin_edited: "yes" };
+
+    const updated = await totalumSdk.crud.editRecordById("offer", id, payload as any);
     if (updated.errors) {
       console.error("[API /admin/showcases/:id] update errors:", updated.errors);
       throw new Error(JSON.stringify(updated.errors));
     }
 
-    console.log(`[API /admin/showcases/:id] updated ${id} ("${normalised.value.name}")`);
+    console.log(
+      `[API /admin/showcases/:id] updated ${id} ("${normalised.value.name}") link=${normalised.value.offer_url || "-"}`
+    );
 
     return NextResponse.json({ ok: true, data: { item: updated.data } });
   } catch (err: any) {
