@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Plus, Pencil, Trash2, Save, X, Search, Loader2, ImagePlus, Link2, Link2Off, Eye, EyeOff, Star,
   Image as ImageIcon, ChevronDown,
@@ -76,7 +76,6 @@ export function ShowcaseManager() {
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const buildParams = useCallback(
     (offset: number) => {
@@ -383,7 +382,7 @@ export function ShowcaseManager() {
                     onClick={() =>
                       setForm({ ...form, images: form.images.filter((f) => f.name !== img.name) })
                     }
-                    className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/80 opacity-0 transition group-hover:opacity-100 hover:text-rose-300"
+                    className="absolute right-1 top-1 inline-flex h-7 w-7 touch-manipulation items-center justify-center rounded-full bg-black/70 text-white/80 transition hover:text-rose-300 sm:opacity-0 sm:group-hover:opacity-100"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -391,11 +390,17 @@ export function ShowcaseManager() {
               ))}
 
               {form.images.length < MAX_IMAGES && (
-                <button
-                  type="button"
-                  onClick={() => fileInput.current?.click()}
-                  disabled={uploading}
-                  className="inline-flex h-20 w-28 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-white/20 bg-white/[0.02] text-white/45 transition hover:border-fuchsia-400/50 hover:text-white disabled:opacity-50"
+                /*
+                 * The real <input type="file"> is stretched over the tile at opacity 0,
+                 * so a tap lands on the native control itself. Mobile browsers (iOS
+                 * Safari and Android WebViews) block `inputRef.current.click()` on a
+                 * `hidden` / `display:none` input, which is why no proxy button is used.
+                 */
+                <div
+                  className={cn(
+                    "relative inline-flex h-20 w-28 touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-white/20 bg-white/[0.02] text-white/45 transition focus-within:border-fuchsia-400/60 focus-within:text-white hover:border-fuchsia-400/50 hover:text-white",
+                    uploading && "opacity-60"
+                  )}
                 >
                   {uploading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -405,17 +410,20 @@ export function ShowcaseManager() {
                       <span className="text-[10px] font-bold">{form.images.length}/{MAX_IMAGES}</span>
                     </>
                   )}
-                </button>
+                  <input
+                    type="file"
+                    // `image/*` keeps the phone gallery + camera available; narrower MIME
+                    // lists make some Android pickers grey every file out.
+                    accept="image/*"
+                    multiple
+                    disabled={uploading}
+                    onChange={handleFiles}
+                    aria-label={t("admin_field_images")}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                  />
+                </div>
               )}
             </div>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
-              multiple
-              hidden
-              onChange={handleFiles}
-            />
             <span className="mt-1.5 block text-[11px] text-white/30">{t("admin_images_hint")}</span>
           </div>
 

@@ -36,14 +36,14 @@ export function TemporalLinkBanner() {
   return (
     <div
       role="status"
-      className="relative z-[2147483647] w-full bg-orange-500 py-2 pl-4 pr-10 text-center text-xs font-medium leading-snug text-white sm:text-sm"
+      className="relative z-[2147483647] w-full bg-orange-500 py-2 pl-4 pr-11 text-center text-xs font-medium leading-snug text-white sm:text-sm"
     >
       This is just a temporal link used for development, to get a permanent link publish your project.
       <button
         type="button"
         aria-label="Close"
         onClick={() => setVisible(false)}
-        className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-base leading-none text-white/80 transition-colors hover:bg-white/20 hover:text-white sm:right-2"
+        className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer touch-manipulation items-center justify-center rounded text-lg leading-none text-white/80 transition-colors hover:bg-white/20 hover:text-white sm:right-2"
       >
         &times;
       </button>

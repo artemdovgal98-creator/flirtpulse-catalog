@@ -132,6 +132,12 @@ catalog, the 264 seeded ones included — not just cards created in the panel:
 - **up to 3 images, 10 MB each** — validated in the browser *and* again in
   `/api/admin/upload` (size, count and MIME type) before `totalumSdk.files.uploadFile`;
   every upload gets a unique file name so two cards can never overwrite each other's photos
+- **mobile file picker:** the `<input type="file">` is stretched over the upload tile at
+  `opacity-0` instead of being `hidden` behind a proxy button calling `ref.click()`.
+  iOS Safari and Android WebViews refuse a programmatic click on a `display:none` input, so the
+  tap has to land on the native control itself. `accept="image/*"` keeps gallery + camera
+  available (narrow MIME lists grey every file out in some Android pickers), and the
+  remove-photo button is always visible on touch instead of `group-hover` only
 - the hidden tracking link, stored in `offer.offer_url`. `normaliseShowcase` adds a missing
   `https://` and rejects anything that is not http(s)
 - saving an existing card sets `admin_edited: "yes"` and patches the row in place, so the current
