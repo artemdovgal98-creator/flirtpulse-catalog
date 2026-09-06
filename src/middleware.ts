@@ -32,6 +32,15 @@ const publicRoutes = [
   "/privacy-policy",
   "/terms-of-service",
 
+  // FlirtPulse AI — the whole catalog is browsable as a guest
+  "/catalog",
+  "/ai-chat",
+  "/favorites",
+  "/profile",
+  "/partner-disclosure",
+  "/cookie-policy",
+  "/contacts",
+
   //stripe routes here
   "/stripe/demo",
   "/stripe/success",

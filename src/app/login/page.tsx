@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { BrandLogo } from "@/components/AppShell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function LoginForm() {
@@ -51,9 +52,10 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-muted/20">
-      <Card className="w-full max-w-md shadow-xl border-2">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-transparent">
+      <Card className="fp-card w-full max-w-md rounded-3xl border-white/10 shadow-2xl">
         <CardHeader className="space-y-2 text-center pb-6">
+          <div className="flex justify-center pb-1"><BrandLogo /></div>
           <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
           <CardDescription className="text-base">
             Enter your email and password to access your account
@@ -115,9 +117,10 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-muted/20">
-        <Card className="w-full max-w-md shadow-xl border-2">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-transparent">
+        <Card className="fp-card w-full max-w-md rounded-3xl border-white/10 shadow-2xl">
           <CardHeader className="space-y-2 text-center pb-6">
+          <div className="flex justify-center pb-1"><BrandLogo /></div>
             <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
             <CardDescription className="text-base">Loading...</CardDescription>
           </CardHeader>
