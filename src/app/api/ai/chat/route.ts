@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { totalumSdk } from "@/lib/totalum";
-import { GEO_NAMES, PAYOUT_MODEL_LABELS } from "@/lib/catalog";
+import { GEO_NAMES, PRIVATE_OFFER_FIELDS } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -60,15 +60,11 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   dating: ["dating", "date", "знакомств", "свидан", "знайомств", "randk", "rencontre", "citas", "encontro", "incontri", "flört", "مواعدة", "约会", "partnersuche"],
   webcam: ["webcam", "cam site", "вебкам", "вебка", "kamerk", "kamera", "cámara", "câmara", "webkam", "كاميرا", "视频聊天"],
   live_cams: ["live cam", "живые камер", "живі камер", "roulette", "рулетк", "live chat", "canlı", "en vivo", "dal vivo", "直播", "بث مباشر", "camera live"],
+  useful: ["useful", "полезн", "корисн", "vpn", "приватн", "безопасн", "podarok", "подарк", "перевод", "фото", "путешеств", "здоров", "przydatne", "nützlich", "utile", "útil", "faydalı", "مفيد", "实用", "tool", "инструмент"],
 };
 
-const MODEL_KEYWORDS: Record<string, string[]> = {
-  pps: ["pps", "per sale", "за продажу", "pay per sale", "за продаж", "sprzedaż", "por venta", "vendita", "销售"],
-  soi: ["soi", "single opt", "однократн", "single optin"],
-  doi: ["doi", "double opt", "двойн"],
-  revshare: ["revshare", "rev share", "ревшар", "revenue share", "процент", "分成"],
-  multi_cpa: ["multi-cpa", "multi cpa", "multicpa", "гибрид", "hybrid"],
-};
+/** Fields the assistant response must never carry back to the browser. */
+const OMIT_PRIVATE = Object.fromEntries(PRIVATE_OFFER_FIELDS.map((f) => [f, true]));
 
 const NO_GEO_KEYWORDS = ["no geo", "without geo", "any geo", "worldwide", "без geo", "без гео", "весь мир", "no restriction", "全球", "بدون قيود"];
 
@@ -95,12 +91,10 @@ export async function POST(request: Request) {
     const language = body.language || "ru";
     const geos = detect(message, GEO_KEYWORDS);
     const categories = detect(message, CATEGORY_KEYWORDS);
-    const models = detect(message, MODEL_KEYWORDS);
     const wantsWorldwide = NO_GEO_KEYWORDS.some((w) => message.toLowerCase().includes(w));
 
     const filter: Record<string, any> = { status: "active" };
     if (categories.length) filter.category = { in: categories };
-    if (models.length) filter.payout_model = { in: models };
     if (wantsWorldwide) filter.geo = { in: ["worldwide"] };
     else if (geos.length) filter.geo = { in: [...geos, "worldwide"] };
 
@@ -110,6 +104,7 @@ export async function POST(request: Request) {
       _filter: filter,
       _sort: { quality_score: "desc" },
       _limit: 40,
+      _omit: OMIT_PRIVATE,
     } as any);
     if (offersResult.errors) console.error("[API /ai/chat] sdk errors:", offersResult.errors);
 
@@ -122,30 +117,30 @@ export async function POST(request: Request) {
         _filter: { status: "active" },
         _sort: { quality_score: "desc" },
         _limit: 30,
+        _omit: OMIT_PRIVATE,
       } as any);
       offers = (fallback.data as any[]) || [];
-      console.log("[API /ai/chat] heuristic returned nothing, using top offers fallback");
+      console.log("[API /ai/chat] heuristic returned nothing, using top services fallback");
     }
 
     const catalogSnippet = offers
       .slice(0, 30)
       .map(
         (o) =>
-          `- ${o.name} | ${(o.category || []).join("/")} | ${(o.payout_model || [])
-            .map((m: string) => PAYOUT_MODEL_LABELS[m] || m)
-            .join("+")} | ${o.payout_label} | GEO: ${(o.geo || [])
+          `- ${o.name} | ${(o.category || []).join("/")} | countries: ${(o.geo || [])
             .map((g: string) => GEO_NAMES[g] || g)
-            .join(", ")} | network: ${o.network} | EPC $${o.epc}`
+            .join(", ")} | tags: ${o.tags || "-"} | ${String(o.description || "").slice(0, 160)}`
       )
       .join("\n");
 
-    const systemPrompt = `You are the FlirtPulse AI assistant, an expert in adult affiliate marketing (dating, webcam and live cam verticals) working with the CrakRevenue partner network.
-Answer ONLY with information from the catalog data given below. Never invent offers, payouts or GEOs.
+    const systemPrompt = `You are the FlirtPulse assistant. You help visitors find services and platforms in four sections: Dating, Webcam, Live cams and Useful (everyday services).
+Answer ONLY with information from the catalog data given below. Never invent services or countries.
+Never mention partner programmes, affiliate networks, commissions, payouts or pricing models — you know nothing about them and they are irrelevant to the visitor.
 Reply in the language of the user's message (their interface language code is "${language}" — use it if the message language is ambiguous).
-Be concise and practical: recommend 3-6 offers max, each on its own line as "**Name** — payout — GEO — why it fits". Finish with one short actionable tip.
+Be concise and friendly: recommend 3-6 services max, each on its own line as "**Name** — what it is — where it works — why it fits". Finish with one short helpful tip.
 Use plain text with markdown-style ** for names. Do not use tables.
 
-CATALOG DATA (${offers.length} matching offers):
+CATALOG DATA (${offers.length} matching services):
 ${catalogSnippet}`;
 
     const history = (body.history || []).slice(-6).map((m) => ({
@@ -168,7 +163,7 @@ ${catalogSnippet}`;
       (completion as any)?.data?.choices?.[0]?.message?.content?.trim() ||
       "I could not generate an answer this time. Please rephrase your question.";
 
-    console.log(`[API /ai/chat] answered with ${reply.length} chars, ${offers.length} offers in context`);
+    console.log(`[API /ai/chat] answered with ${reply.length} chars, ${offers.length} services in context`);
 
     // Persist the exchange for signed-in users (non-critical: never blocks the reply).
     try {
@@ -193,8 +188,13 @@ ${catalogSnippet}`;
       ok: true,
       data: {
         reply,
-        offers: offers.slice(0, 6),
-        detected: { geos, categories, models, worldwide: wantsWorldwide },
+        offers: offers.slice(0, 6).map((o) => {
+          // Defence in depth — nothing private ever reaches the chat UI.
+          const safe = { ...o };
+          for (const field of PRIVATE_OFFER_FIELDS) delete safe[field];
+          return safe;
+        }),
+        detected: { geos, categories, worldwide: wantsWorldwide },
       },
     });
   } catch (err: any) {

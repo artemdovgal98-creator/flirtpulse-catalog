@@ -1,29 +1,39 @@
 /**
  * Shared, client-safe catalog constants and types.
- * Mirrors the Totalum `offer` table structure.
+ *
+ * IMPORTANT: the public interface never exposes partner networks, payouts or
+ * tracking links. Those fields still exist in the database for the admin, but
+ * `/api/offers` strips them before anything reaches the browser.
  */
+
+export interface OfferImage {
+  name: string;
+  url: string;
+}
 
 export interface Offer {
   _id: string;
   name: string;
-  slug?: string;
   description?: string;
   category?: string[];
-  network?: string;
-  payout_model?: string[];
-  payout_amount?: number;
-  payout_label?: string;
   geo?: string[];
   tags?: string;
   quality_score?: number;
-  epc?: number;
-  conversion_flow?: string;
-  offer_url?: string;
   image_url?: string;
+  images?: OfferImage[];
   launch_date?: string;
   is_featured?: string;
+  is_custom?: string;
+  click_count?: number;
   status?: string;
   createdAt?: string;
+}
+
+/** Admin-only view of a showcase — includes the hidden tracking link. */
+export interface AdminOffer extends Offer {
+  slug?: string;
+  offer_url?: string;
+  network?: string;
 }
 
 export interface Favorite {
@@ -32,24 +42,13 @@ export interface Favorite {
   saved_at?: string;
 }
 
-export const CATEGORIES = ["dating", "webcam", "live_cams"] as const;
+export const CATEGORIES = ["dating", "webcam", "live_cams", "useful"] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-export const PAYOUT_MODELS = ["pps", "soi", "doi", "revshare", "multi_cpa"] as const;
-export type PayoutModel = (typeof PAYOUT_MODELS)[number];
-
-export const PAYOUT_MODEL_LABELS: Record<string, string> = {
-  pps: "PPS",
-  soi: "SOI",
-  doi: "DOI",
-  revshare: "RevShare",
-  multi_cpa: "Multi-CPA",
-};
-
-export const SORT_OPTIONS = ["relevance", "newest", "name", "quality"] as const;
+export const SORT_OPTIONS = ["relevance", "newest", "name", "popular"] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
-/** Every GEO available as a filter, in the order shown in the UI. */
+/** Every region available as a filter, in the order shown in the UI. */
 export const GEO_NAMES: Record<string, string> = {
   worldwide: "Worldwide",
   us: "United States",
@@ -117,12 +116,36 @@ export const CATEGORY_GRADIENT: Record<string, string> = {
   dating: "from-rose-500 to-fuchsia-600",
   webcam: "from-violet-500 to-indigo-600",
   live_cams: "from-cyan-400 to-blue-600",
+  useful: "from-emerald-400 to-teal-600",
 };
 
 export const CATEGORY_DOT: Record<string, string> = {
   dating: "bg-rose-400",
   webcam: "bg-violet-400",
   live_cams: "bg-cyan-400",
+  useful: "bg-emerald-400",
 };
 
 export const PAGE_SIZE = 24;
+
+/**
+ * Fields that must never leave the server on a public request.
+ * `slug` is included because seeded slugs embed the internal source name.
+ */
+export const PRIVATE_OFFER_FIELDS = [
+  "slug",
+  "offer_url",
+  "network",
+  "payout_model",
+  "payout_amount",
+  "payout_label",
+  "epc",
+  "conversion_flow",
+] as const;
+
+/** Returns the best cover image for a card: uploaded images first, then the external URL. */
+export function offerImages(offer: Offer): string[] {
+  const uploaded = (offer.images ?? []).map((f) => f?.url).filter(Boolean) as string[];
+  if (uploaded.length) return uploaded;
+  return offer.image_url ? [offer.image_url] : [];
+}

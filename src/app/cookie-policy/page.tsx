@@ -13,11 +13,11 @@ export default function CookiePolicyPage() {
         },
         {
           heading: "Local storage",
-          body: "Your interface language, favourite categories and guest favourites are stored in your browser's localStorage rather than in cookies. They never leave your device unless you are signed in.",
+          body: "Your interface language, favourite categories, guest favourites and an anonymous visitor id are stored in your browser's localStorage rather than in cookies. The visitor id is a random string and contains no personal data.",
         },
         {
           heading: "Third-party cookies",
-          body: "Partner networks set their own tracking cookies once you click through to an offer. Those cookies are governed by the network's own cookie policy, not ours.",
+          body: "External services set their own cookies once you open them from the catalog. Those cookies are governed by each service's own cookie policy, not ours.",
         },
         {
           heading: "Managing cookies",

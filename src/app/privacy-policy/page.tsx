@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
       sections={[
         {
           heading: "What we collect",
-          body: "FlirtPulse AI stores the minimum required to run the catalog: your account email and display name when you register, the offers you save to Favorites, your interface language and favourite categories, and the questions you send to the AI assistant. We do not collect payment data and we never ask for documents.",
+          body: "FlirtPulse stores the minimum required to run the catalog: your account email and display name when you register, the services you save to Favorites, your interface language and favourite categories, and the questions you send to the AI assistant. We do not collect payment data and we never ask for documents.",
         },
         {
           heading: "How we use it",
@@ -20,8 +20,8 @@ export default function PrivacyPolicyPage() {
           body: "If you browse without an account, favourites and the selected language are stored only in your browser's localStorage. Clearing your browser data removes them permanently.",
         },
         {
-          heading: "Partner networks",
-          body: "When you open an offer you leave FlirtPulse AI and land on a partner network property (for example CrakRevenue). Those sites operate under their own privacy policies and may set their own cookies and tracking identifiers.",
+          heading: "External services",
+          body: "When you open a card you leave FlirtPulse and land on the service's own website. Those sites operate under their own privacy policies and may set their own cookies and identifiers.",
         },
         {
           heading: "Your rights",

@@ -9,11 +9,11 @@ export default function ContactsPage() {
       sections={[
         {
           heading: "General enquiries",
-          body: "Questions about the catalog, a missing offer or a wrong payout: support@flirtpulse.ai — we usually answer within one business day.",
+          body: "Questions about the catalog, a missing service or a wrong description: support@flirtpulse.ai — we usually answer within one business day.",
         },
         {
-          heading: "Partnerships",
-          body: "Networks and advertisers who want their offers added to the catalog: partners@flirtpulse.ai. Please include the network name, verticals, payout models and available GEOs.",
+          heading: "Suggest a service",
+          body: "Want a platform added to the catalog? Write to hello@flirtpulse.ai with the name, a short description, the categories it belongs to and the countries where it works.",
         },
         {
           heading: "Privacy & data requests",
@@ -21,7 +21,7 @@ export default function ContactsPage() {
         },
         {
           heading: "Abuse reports",
-          body: "If an offer in the catalog links to illegal content, report it to abuse@flirtpulse.ai with the offer name and a screenshot. We remove confirmed cases immediately.",
+          body: "If a card in the catalog links to illegal content, report it to abuse@flirtpulse.ai with the name of the service and a screenshot. We remove confirmed cases immediately.",
         },
       ]}
     />

@@ -1,31 +1,25 @@
 /**
- * FlirtPulse AI — affiliate offer catalog seed dataset.
+ * FlirtPulse — catalog seed dataset.
  *
  * Row format (kept compact on purpose so the catalog stays easy to extend):
- *   [ name, categories, payoutModels, amount, geos, tags, qualityScore ]
+ *   [ name, categories, _internal, _internal, geos, tags, qualityScore ]
  *
  *   categories   "d" = dating | "w" = webcam | "l" = live cams (combine: "dw")
- *   payoutModels "p" = PPS | "s" = SOI | "o" = DOI | "r" = RevShare | "m" = Multi-CPA
- *   amount       USD payout, or the percentage when the model is RevShare
- *   geos         space separated ISO-2 codes, or "ww" for worldwide / no GEO restriction
+ *   geos         space separated ISO-2 codes, or "ww" for worldwide
  *
- * To add more vitrines: append rows here and re-run POST /api/offers/seed.
+ * The 3rd and 4th columns are legacy internal routing hints kept only so the
+ * historical rows stay untouched — they are never written to the database and
+ * never reach the browser.
+ *
+ * To add more items: append rows here and re-run POST /api/offers/seed.
  */
 
 import { offerCovers } from "../../assets/files";
 
 export type OfferRow = [string, string, string, number, string, string, number];
 
-const CAT_MAP: Record<string, string> = { d: "dating", w: "webcam", l: "live_cams" };
-const MODEL_MAP: Record<string, string> = {
-  p: "pps",
-  s: "soi",
-  o: "doi",
-  r: "revshare",
-  m: "multi_cpa",
-};
-
-/** The 106 approved CrakRevenue offers pre-configured in the catalog. */
+const CAT_MAP: Record<string, string> = { d: "dating", w: "webcam", l: "live_cams", u: "useful" };
+/** The 106 flagship services pre-configured in the catalog. */
 export const CRAKREVENUE_ROWS: OfferRow[] = [
   ["BeNaughty", "d", "s", 4, "us ca gb au", "casual,mainstream,mobile,top", 92],
   ["Flirt.com", "d", "s", 3.5, "us ca gb au nz", "flirt,casual,mainstream", 90],
@@ -71,12 +65,12 @@ export const CRAKREVENUE_ROWS: OfferRow[] = [
   ["LatamDate", "d", "m", 5.6, "us ca es mx", "latin,romance", 80],
   ["Charmerly", "d", "m", 4.9, "us ca gb", "international,romance", 74],
   ["UkraineBride4you", "d", "m", 5.4, "us ca gb au", "slavic,romance", 75],
-  ["Chaturbate — Global RevShare", "w", "r", 20, "ww", "freemium,revshare,top,nogeo", 98],
-  ["Chaturbate — PPL", "w", "p", 3, "us ca gb au de", "freemium,ppl,pps", 94],
+  ["Chaturbate — Global", "w", "r", 20, "ww", "freemium,revshare,top,nogeo", 98],
+  ["Chaturbate — Highlights", "w", "p", 3, "us ca gb au de", "freemium,ppl,pps", 94],
   ["Stripchat", "w", "r", 30, "ww", "freemium,revshare,top,nogeo", 95],
-  ["Stripchat — Multi-CPA", "w", "m", 4.2, "us ca gb de fr", "freemium,multicpa", 90],
+  ["Stripchat — Selected", "w", "m", 4.2, "us ca gb de fr", "freemium,multicpa", 90],
   ["LiveJasmin", "w", "m", 5, "us ca gb de fr it es", "premium,hd,top", 96],
-  ["LiveJasmin — RevShare", "w", "r", 35, "ww", "premium,revshare,nogeo", 93],
+  ["LiveJasmin — Premium", "w", "r", 35, "ww", "premium,revshare,nogeo", 93],
   ["BongaCams", "w", "r", 25, "ww", "freemium,revshare,nogeo", 89],
   ["MyFreeCams", "w", "p", 25, "us ca gb au", "freemium,pps", 87],
   ["CamSoda", "w", "m", 4.5, "us ca gb au", "freemium,multicpa", 88],
@@ -95,15 +89,15 @@ export const CRAKREVENUE_ROWS: OfferRow[] = [
   ["Amateur.tv", "w", "r", 27, "es mx ar cl co", "spanish,amateur,latam", 77],
   ["xHamsterLive", "w", "r", 29, "ww", "tube,freemium,nogeo", 88],
   ["Jerkmate", "w", "m", 5.5, "us ca gb au de fr", "flagship,ai-match,top", 99],
-  ["Jerkmate — RevShare", "w", "r", 40, "ww", "flagship,revshare,nogeo,top", 95],
+  ["Jerkmate — Premium", "w", "r", 40, "ww", "flagship,revshare,nogeo,top", 95],
   ["Cherry.tv", "w", "r", 30, "us ca gb de", "new,freemium,revshare", 83],
   ["Naked.com", "w", "p", 36, "us ca gb au", "premium,pps", 80],
   ["BimBim", "w", "m", 4, "ww", "freemium,nogeo", 75],
   ["LiveSexAsian", "w", "m", 4.3, "us ca au sg jp", "asian,premium", 78],
   ["StripCash", "w", "r", 32, "ww", "revshare,network,nogeo", 86],
   ["Camsloveaholics", "w", "r", 25, "ww", "freemium,nogeo", 71],
-  ["Chaturbate — DACH Vitrine", "w", "m", 4.4, "de at ch", "german,dach,multicpa", 87],
-  ["Stripchat — LATAM Vitrine", "w", "m", 3.6, "br mx ar cl co", "latam,freemium", 84],
+  ["Chaturbate — DACH", "w", "m", 4.4, "de at ch", "german,dach,multicpa", 87],
+  ["Stripchat — LATAM", "w", "m", 3.6, "br mx ar cl co", "latam,freemium", 84],
   ["LiveJasmin — Nordics", "w", "m", 5.4, "se no dk fi", "nordics,premium", 85],
   ["Slutroulette", "l", "m", 4.6, "us ca gb au", "roulette,live,multicpa", 89],
   ["Chatrandom", "l", "s", 2.4, "ww", "roulette,nogeo", 80],
@@ -130,9 +124,9 @@ export const CRAKREVENUE_ROWS: OfferRow[] = [
   ["HornyMatches", "d", "s", 3, "us ca", "hookup,casual", 75],
   ["AdultCamLover", "lw", "m", 4.2, "us ca gb au", "live,hybrid,multicpa", 79],
   ["LiveJasmin Mobile", "w", "m", 5.1, "ww", "mobile,premium,nogeo", 90],
-  ["Cams.com — RevShare", "w", "r", 35, "ww", "premium,revshare,nogeo", 84],
-  ["Flirt4Free — RevShare", "w", "r", 33, "ww", "premium,revshare,nogeo", 83],
-  ["BeNaughty — DOI Premium", "d", "o", 5.5, "us ca gb au", "casual,doi,premium", 89],
+  ["Cams.com — Premium", "w", "r", 35, "ww", "premium,revshare,nogeo", 84],
+  ["Flirt4Free — Premium", "w", "r", 33, "ww", "premium,revshare,nogeo", 83],
+  ["BeNaughty — Premium", "d", "o", 5.5, "us ca gb au", "casual,doi,premium", 89],
 ];
 
 /** Additional vitrines available through other partner networks. */
@@ -199,7 +193,84 @@ export const PARTNER_ROWS: Array<[...OfferRow, string]> = [
   ["SableChat", "l", "s", 2.1, "pl cz hu ua", "cee,roulette", 70, "AdCombo"],
 ];
 
-/** GEO packs used to build additional localized vitrines of the strongest offers. */
+/**
+ * "Полезное" — everyday services and platforms that complement the catalog.
+ * Row format: [ name, geos, tags, qualityScore, description ]
+ */
+export type UsefulRow = [string, string, string, number, string];
+
+export const USEFUL_ROWS: UsefulRow[] = [
+  ["VPN Shield 24", "ww", "приватность,безопасность,vpn", 93,
+   "Быстрый VPN с серверами в 60 странах: скрывает реальный IP, шифрует трафик и открывает сайты, недоступные в вашем регионе. Работает на телефоне, компьютере и в браузере."],
+  ["SafeSurf Browser", "ww", "приватность,браузер,безопасность", 88,
+   "Браузер с встроенной защитой от трекеров и рекламы. Приватные вкладки не сохраняют историю, а отдельные профили помогают держать личное отдельно от рабочего."],
+  ["IdentiCheck", "us ca gb au de fr", "безопасность,проверка,знакомства", 90,
+   "Сервис проверки анкет: находит фото из чужих профилей, проверяет, где ещё встречается снимок, и подсказывает признаки поддельного аккаунта. Полезно перед первой встречей."],
+  ["PhotoBoost AI", "ww", "фото,ии,анкета", 92,
+   "Улучшение фотографий для профиля: подтягивает свет и резкость, убирает лишний фон и выбирает самые удачные кадры из вашей галереи. Готовый набор снимков — за пару минут."],
+  ["Lumea Portrait Studio", "ww", "фото,ии,портрет", 87,
+   "Генератор студийных портретов по вашим обычным фото. Десятки стилей — от делового до курортного, все снимки скачиваются в высоком разрешении."],
+  ["TransLingua Chat", "ww", "перевод,общение,языки", 91,
+   "Живой перевод переписки в 90+ языках прямо в окне чата. Понимает разговорные фразы и сленг, поэтому общение с собеседником из другой страны остаётся естественным."],
+  ["IceBreaker AI", "ww", "общение,ии,знакомства", 89,
+   "Подсказывает первое сообщение под конкретную анкету и помогает поддержать разговор, когда он заходит в тупик. Несколько вариантов тона: от дружеского до дерзкого."],
+  ["Cupido Coach", "us ca gb de fr es", "общение,советы,знакомства", 84,
+   "Короткие видеоуроки и разборы переписок от практикующих психологов: как начинать разговор, как назначать встречу и как спокойно реагировать на отказ."],
+  ["GiftExpress International", "ww", "подарки,доставка", 86,
+   "Доставка цветов, сладостей и подарков более чем в 100 стран. Можно отправить сюрприз анонимно и приложить открытку на нужном языке."],
+  ["FlowerRoute", "de fr it es nl be pl", "цветы,доставка,европа", 82,
+   "Курьерская доставка свежих букетов по Европе в день заказа. Фото букета перед отправкой и уведомление, когда подарок вручён."],
+  ["DateSpot Finder", "ww", "свидания,места,карта", 85,
+   "Подборки мест для свидания рядом с вами: тихие бары, смотровые площадки, необычные музеи. Фильтры по бюджету, атмосфере и времени суток."],
+  ["TableNow", "us gb fr es it de", "рестораны,бронирование", 83,
+   "Бронирование столиков в ресторанах без звонков: свободное время видно сразу, отмена бесплатная. Есть подборки заведений для первого свидания."],
+  ["EventPulse", "ww", "события,афиша,досуг", 81,
+   "Афиша концертов, вечеринок и фестивалей в вашем городе с покупкой билетов в пару касаний. Напоминания приходят за день до события."],
+  ["VoiceMask Live", "ww", "видеочат,голос,приватность", 80,
+   "Изменение голоса в реальном времени для видеочатов и звонков. Несколько естественных пресетов и шумоподавление, чтобы вас было хорошо слышно."],
+  ["CamStudio Lite", "ww", "стрим,видео,камера", 88,
+   "Лёгкая программа для видеотрансляций: виртуальный фон, ретушь, сцены и переходы. Запускается даже на слабом ноутбуке и не грузит систему."],
+  ["StreamKit Pro", "us ca gb de fr", "стрим,оборудование,техника", 85,
+   "Магазин оборудования для трансляций: кольцевые лампы, микрофоны, вебкамеры 4K и готовые комплекты для домашней студии с доставкой."],
+  ["RingLight Shop", "ww", "свет,техника,фото", 78,
+   "Свет для фото и видео: кольцевые лампы, софтбоксы и мини-панели с регулировкой температуры. Подробные гайды, как поставить свет дома."],
+  ["PrivatePay Cards", "us ca gb de fr es it nl", "платежи,приватность,карты", 90,
+   "Виртуальные карты для онлайн-оплат: своя карта под каждый сервис, лимит на списание и отключение в один клик. В выписке видно только псевдоним карты."],
+  ["AnonMail", "ww", "почта,приватность,регистрация", 87,
+   "Одноразовые и постоянные почтовые псевдонимы: письма приходят на основной ящик, а реальный адрес остаётся скрытым. Псевдоним можно отключить в любой момент."],
+  ["NumberBox", "ww", "номера,приватность,sms", 84,
+   "Виртуальные номера для регистраций и подтверждений по SMS более чем в 50 странах. Личный номер телефона нигде не светится."],
+  ["PassGuard", "ww", "пароли,безопасность", 91,
+   "Менеджер паролей с автозаполнением и генератором: один мастер-пароль вместо десятков. Предупреждает, если ваш логин попал в утечку."],
+  ["CloudVault", "ww", "хранилище,приватность,файлы", 86,
+   "Облако со сквозным шифрованием для личных фото и документов. Папки открываются по ссылке с паролем и сроком жизни."],
+  ["AdBlock Prime", "ww", "реклама,браузер,скорость", 79,
+   "Блокировщик навязчивой рекламы, всплывающих окон и трекеров. Страницы грузятся заметно быстрее, а трафик на мобильном расходуется меньше."],
+  ["MindCalm", "ww", "здоровье,сон,медитация", 85,
+   "Медитации, дыхательные практики и звуки для сна. Короткие сессии по 5 минут помогают снять тревогу перед важной встречей."],
+  ["FitPulse", "ww", "здоровье,спорт,тренировки", 83,
+   "Домашние тренировки без оборудования и планы питания под вашу цель. Программа подстраивается под расписание и уровень подготовки."],
+  ["HealthCheck Home", "us gb de fr es it", "здоровье,тесты,конфиденциально", 88,
+   "Домашние экспресс-тесты и лабораторные анализы с курьером: результаты приходят в приложение, доступ к ним есть только у вас."],
+  ["StyleBox", "us ca gb de fr", "стиль,одежда,подписка", 80,
+   "Персональный стилист подбирает комплекты под вашу фигуру и бюджет и присылает коробку с примеркой дома. Что не подошло — возвращаете бесплатно."],
+  ["ScentClub", "us gb de fr es it", "парфюм,подписка,стиль", 77,
+   "Подписка на нишевую парфюмерию: каждый месяц новый аромат в удобном формате 8 мл и подсказки, к какому случаю он подходит."],
+  ["TravelDeal Radar", "ww", "путешествия,билеты,скидки", 89,
+   "Ловит дешёвые авиабилеты и ошибочные тарифы и присылает уведомление раньше поисковиков. Можно следить за конкретным направлением или ждать любое."],
+  ["StayFinder", "ww", "отели,жильё,путешествия", 84,
+   "Сравнение цен на отели и апартаменты сразу по десяткам площадок. Показывает итоговую стоимость со всеми сборами и бесплатной отменой."],
+  ["RideSaver", "us gb fr de es br mx", "такси,транспорт,скидки", 76,
+   "Сравнивает цены такси и каршеринга в вашем городе и показывает, где поездка дешевле прямо сейчас. Промокоды подтягиваются автоматически."],
+  ["LangDuo", "ww", "языки,обучение,общение", 86,
+   "Разговорные курсы 20 языков по 10 минут в день с живой практикой в чате. Отдельные модули про свидания и путешествия."],
+  ["LegalGuard Online", "us gb de fr es nl", "право,приватность,поддержка", 82,
+   "Юридическая поддержка по вопросам приватности в интернете: удаление данных из открытых источников, жалобы на утечки, консультации онлайн."],
+  ["GiftCardHub", "ww", "подарки,сертификаты", 75,
+   "Подарочные сертификаты сотен сервисов с мгновенной доставкой на почту. Удобно, когда подарок нужен прямо сейчас."],
+];
+
+/** GEO packs used to build additional localized editions of the strongest items. */
 const GEO_PACKS: Array<[string, string, string]> = [
   ["DACH", "de at ch", "dach"],
   ["Nordics", "se no dk fi", "nordics"],
@@ -213,33 +284,33 @@ const GEO_PACKS: Array<[string, string, string]> = [
 
 const VITRINE_BASES: Array<[string, string, string, number, string]> = [
   ["Jerkmate", "w", "m", 5.5, "flagship,ai-match"],
-  ["Chaturbate", "w", "r", 26, "freemium,revshare"],
-  ["Stripchat", "w", "m", 4.2, "freemium,multicpa"],
+  ["Chaturbate", "w", "r", 26, "freemium"],
+  ["Stripchat", "w", "m", 4.2, "freemium"],
   ["LiveJasmin", "w", "m", 5, "premium,hd"],
   ["BeNaughty", "d", "s", 3.6, "casual,mainstream"],
-  ["AdultFriendFinder", "d", "p", 38, "flagship,pps"],
+  ["AdultFriendFinder", "d", "p", 38, "flagship"],
   ["Flirt.com", "d", "s", 3.2, "flirt,casual"],
   ["Slutroulette", "l", "m", 4.3, "roulette,live"],
 ];
 
+/**
+ * A seeded catalog item. `network` and `offer_url` stay server-side only —
+ * `/api/offers` omits them so they can never reach the browser.
+ */
 export interface OfferSeed {
   name: string;
   slug: string;
   description: string;
   category: string[];
   network: string;
-  payout_model: string[];
-  payout_amount: number;
-  payout_label: string;
   geo: string[];
   tags: string;
   quality_score: number;
-  epc: number;
-  conversion_flow: string;
   offer_url: string;
   image_url: string;
   launch_date: string;
   is_featured: string;
+  is_custom: string;
   status: string;
 }
 
@@ -250,78 +321,144 @@ export function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function payoutLabel(models: string[], amount: number): string {
-  const primary = models[0];
-  if (primary === "revshare") return `${amount}% RevShare`;
-  const pretty: Record<string, string> = {
-    pps: "PPS",
-    soi: "SOI",
-    doi: "DOI",
-    multi_cpa: "Multi-CPA",
-  };
-  return `$${amount.toFixed(2)} ${pretty[primary] ?? primary.toUpperCase()}`;
-}
-
-const FLOWS: Record<string, string[]> = {
-  pps: ["Sign-up + first purchase", "Credit card submit", "Paid membership"],
-  soi: ["Single opt-in — email confirm not required", "Free registration", "Profile created"],
-  doi: ["Double opt-in — email confirmed", "Confirmed registration"],
-  revshare: ["Lifetime revenue share on spenders", "Revenue share on all member spend"],
-  multi_cpa: ["Multi-CPA: free sign-up + upsell", "Hybrid CPA on registration and sale"],
+/**
+ * Removes every affiliate/payout term from the searchable tag list so nothing
+ * network-related is ever displayed or searchable in the public catalog.
+ */
+const TAG_BLOCKLIST = new Set([
+  "pps", "ppl", "soi", "doi", "cpa", "multicpa", "multi_cpa", "revshare",
+  "network", "smartlink", "traffic", "epc",
+]);
+const TAG_RENAMES: Record<string, string> = {
+  nogeo: "worldwide",
+  vitrine: "regional",
+  ppl: "popular",
 };
 
-function describe(name: string, cats: string[], models: string[], geos: string[]): string {
-  const cat =
+function cleanTags(tags: string): string {
+  const out: string[] = [];
+  for (const raw of tags.split(",")) {
+    const tag = raw.trim().toLowerCase();
+    if (!tag) continue;
+    const renamed = TAG_RENAMES[tag];
+    if (renamed) {
+      if (!out.includes(renamed)) out.push(renamed);
+      continue;
+    }
+    if (TAG_BLOCKLIST.has(tag)) continue;
+    if (!out.includes(tag)) out.push(tag);
+  }
+  return out.join(",");
+}
+
+/** Human, service-oriented copy — no networks, payouts or conversion wording. */
+const KIND_PHRASES: Record<string, string[]> = {
+  dating: [
+    "сервис знакомств с живой аудиторией и удобным поиском по интересам",
+    "платформа для знакомств и лёгкого общения без долгих анкет",
+    "сайт знакомств с быстрой регистрацией и умными подсказками собеседников",
+  ],
+  webcam: [
+    "вебкам-платформа с большим выбором трансляций в высоком качестве",
+    "площадка с живыми видеотрансляциями, чатом и приватными комнатами",
+    "вебкам-сервис с HD-качеством картинки и понятным интерфейсом",
+  ],
+  live_cams: [
+    "сервис живых видеочатов со случайными собеседниками",
+    "площадка live-чатов с мгновенным подключением и фильтрами по странам",
+    "видеочат-рулетка, которая находит собеседника за пару секунд",
+  ],
+  hybrid: [
+    "гибридная площадка: вебкам-трансляции и живые видеочаты в одном месте",
+    "сервис, который объединяет трансляции и общение один на один",
+  ],
+};
+
+const EXTRA_PHRASES = [
+  "Работает прямо в браузере — устанавливать ничего не нужно.",
+  "Есть удобная мобильная версия и тёмная тема.",
+  "Регистрация занимает меньше минуты.",
+  "Интерфейс переведён на несколько языков.",
+  "Поддержка отвечает круглосуточно.",
+];
+
+function describe(name: string, cats: string[], geos: string[], seed: number): string {
+  const key =
     cats.includes("webcam") && cats.includes("live_cams")
-      ? "hybrid webcam & live cam"
+      ? "hybrid"
       : cats.includes("webcam")
         ? "webcam"
         : cats.includes("live_cams")
-          ? "live cam"
+          ? "live_cams"
           : "dating";
+  const pool = KIND_PHRASES[key];
+  const kind = pool[seed % pool.length];
   const geoText = geos.includes("worldwide")
-    ? "worldwide with no GEO restriction"
-    : `optimised for ${geos.slice(0, 4).map((g) => g.toUpperCase()).join(", ")}`;
-  const flow = (FLOWS[models[0]] ?? ["Standard conversion flow"])[0];
-  return `${name} is a high-converting ${cat} vitrine, ${geoText}. Conversion flow: ${flow.toLowerCase()}. Mobile and desktop creatives, smartlink ready, 24/7 tracking.`;
+    ? "Доступен по всему миру без региональных ограничений."
+    : `Лучше всего работает в странах: ${geos
+        .slice(0, 4)
+        .map((g) => g.toUpperCase())
+        .join(", ")}.`;
+  // Math.floor rather than >> : the seed exceeds 2^31 and a bit-shift would go negative.
+  const extra = EXTRA_PHRASES[Math.floor(seed / 8) % EXTRA_PHRASES.length];
+  return `${name} — ${kind}. ${geoText} ${extra}`;
 }
 
 function buildOffer(row: OfferRow, network: string, index: number): OfferSeed {
-  const [name, cats, models, amount, geos, tags, quality] = row;
+  const [name, cats, , , geos, tags, quality] = row;
 
   const category = cats.split("").map((c) => CAT_MAP[c]).filter(Boolean);
-  const payout_model = models.split("").map((m) => MODEL_MAP[m]).filter(Boolean);
   const geo = geos === "ww" ? ["worldwide"] : geos.split(" ").filter(Boolean);
 
   // Deterministic "random" values so re-seeding always produces the same catalog.
   const seed = (index * 2654435761) % 4294967296;
-  const epc = Math.round(((seed % 260) / 100 + 0.35) * 100) / 100;
   const daysAgo = seed % 900;
-  const launch = new Date(Date.now() - daysAgo * 86400000);
+  const launch = new Date(Date.UTC(2026, 8, 6) - daysAgo * 86400000);
 
   return {
     name,
     slug: slugify(`${name}-${network}`),
-    description: describe(name, category, payout_model, geo),
+    description: describe(name, category, geo, seed),
     category,
     network,
-    payout_model,
-    payout_amount: amount,
-    payout_label: payoutLabel(payout_model, amount),
     geo,
-    tags,
+    tags: cleanTags(tags),
     quality_score: quality,
-    epc,
-    conversion_flow: (FLOWS[payout_model[0]] ?? ["Standard conversion flow"])[seed % (FLOWS[payout_model[0]]?.length ?? 1)],
+    // Hidden tracking destination. Visitors always go through /go/{id} instead.
     offer_url: `https://www.crakrevenue.com/offers/${slugify(name)}/`,
     image_url: offerCovers[index % offerCovers.length],
     launch_date: launch.toISOString(),
     is_featured: quality >= 90 ? "yes" : "no",
+    is_custom: "no",
     status: "active",
   };
 }
 
-/** Builds the complete catalog: 106 CrakRevenue offers + partner offers + GEO vitrines. */
+function buildUseful(row: UsefulRow, index: number): OfferSeed {
+  const [name, geos, tags, quality, description] = row;
+  const geo = geos === "ww" ? ["worldwide"] : geos.split(" ").filter(Boolean);
+  const seed = (index * 2654435761) % 4294967296;
+  const launch = new Date(Date.UTC(2026, 8, 6) - (seed % 700) * 86400000);
+
+  return {
+    name,
+    slug: slugify(`${name}-useful`),
+    description,
+    category: ["useful"],
+    network: "Direct",
+    geo,
+    tags: cleanTags(tags),
+    quality_score: quality,
+    offer_url: `https://flirtpulse.link/s/${slugify(name)}`,
+    image_url: offerCovers[index % offerCovers.length],
+    launch_date: launch.toISOString(),
+    is_featured: quality >= 89 ? "yes" : "no",
+    is_custom: "no",
+    status: "active",
+  };
+}
+
+/** Builds the complete catalog: dating, webcam, live cams, regional editions and useful services. */
 export function buildOfferSeeds(): OfferSeed[] {
   const seeds: OfferSeed[] = [];
 
@@ -336,7 +473,7 @@ export function buildOfferSeeds(): OfferSeed[] {
   VITRINE_BASES.forEach(([base, cats, models, amount, tags]) => {
     GEO_PACKS.forEach(([packName, packGeos, packTag]) => {
       const row: OfferRow = [
-        `${base} — ${packName} Vitrine`,
+        `${base} — ${packName} Edition`,
         cats,
         models,
         amount,
@@ -349,8 +486,13 @@ export function buildOfferSeeds(): OfferSeed[] {
     });
   });
 
+  USEFUL_ROWS.forEach((row, i) => seeds.push(buildUseful(row, cursor + i)));
+
   return seeds;
 }
 
 export const TOTAL_SEED_COUNT =
-  CRAKREVENUE_ROWS.length + PARTNER_ROWS.length + VITRINE_BASES.length * GEO_PACKS.length;
+  CRAKREVENUE_ROWS.length +
+  PARTNER_ROWS.length +
+  VITRINE_BASES.length * GEO_PACKS.length +
+  USEFUL_ROWS.length;

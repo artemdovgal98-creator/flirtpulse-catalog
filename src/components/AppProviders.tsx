@@ -4,11 +4,13 @@ import React from "react";
 import { I18nProvider } from "@/lib/i18n";
 import { FavoritesProvider } from "@/components/FavoritesProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { PresenceTracker } from "@/components/PresenceTracker";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <I18nProvider>
       <FavoritesProvider>
+        <PresenceTracker />
         {children}
         <Toaster position="top-center" theme="dark" richColors />
       </FavoritesProvider>

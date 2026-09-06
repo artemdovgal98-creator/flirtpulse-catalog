@@ -245,13 +245,17 @@ export const auth = betterAuth({
   // if (user?.role === 'admin') { /* admin logic */ }
   //
   // ============================================================================
+  // NOTE: admin access is intentionally NOT a field on the `user` table.
+  // The Totalum auth `user` table rejects duplicate values on custom columns,
+  // which would make the second registration fail. Membership lives in the
+  // dedicated `admin_user` table instead — see src/lib/admin.ts.
   user: {
-    additionalFields: {
-      // Add your custom user fields here (see examples above)
-    },
+    additionalFields: {},
   },
 });
 
 // Base types from Better Auth
 export type Session = typeof auth.$Infer.Session;
 export type User = Session["user"];
+
+

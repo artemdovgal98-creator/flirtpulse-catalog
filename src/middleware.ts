@@ -37,7 +37,8 @@ const publicRoutes = [
   "/ai-chat",
   "/favorites",
   "/profile",
-  "/partner-disclosure",
+  "/about",
+  "/go",
   "/cookie-policy",
   "/contacts",
 

@@ -6,7 +6,7 @@ import { ArrowRight, Sparkles, ShieldCheck, Globe2, Zap } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { OfferCard, OfferCardSkeleton } from "@/components/OfferCard";
-import { CATEGORIES, GEO_CODES, PAYOUT_MODELS, type Offer } from "@/lib/catalog";
+import { CATEGORIES, GEO_CODES, type Offer } from "@/lib/catalog";
 import { LANGUAGES } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ export default function HomePage() {
 
   useEffect(() => {
     api
-      .get<{ items: Offer[]; total: number }>("/api/offers?sort=quality&limit=6")
+      .get<{ items: Offer[]; total: number }>("/api/offers?sort=relevance&limit=6")
       .then((res) => {
         if (res.ok && res.data) {
           setFeatured(res.data.items);
@@ -32,9 +32,9 @@ export default function HomePage() {
   }, []);
 
   const stats = [
-    { value: total ? `${total}+` : "230+", label: t("home_stat_offers"), Icon: Zap },
+    { value: total ? `${total}+` : "260+", label: t("home_stat_offers"), Icon: Zap },
     { value: `${GEO_CODES.length}`, label: t("home_stat_geos"), Icon: Globe2 },
-    { value: `${PAYOUT_MODELS.length}`, label: t("home_stat_models"), Icon: ShieldCheck },
+    { value: `${CATEGORIES.length}`, label: t("home_stat_models"), Icon: ShieldCheck },
     { value: `${LANGUAGES.length}`, label: t("home_stat_langs"), Icon: Sparkles },
   ];
 
@@ -90,7 +90,7 @@ export default function HomePage() {
       </section>
 
       {/* Category shortcuts */}
-      <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CATEGORIES.map((c, i) => (
           <Link
             key={c}

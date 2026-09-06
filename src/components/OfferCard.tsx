@@ -1,15 +1,16 @@
 "use client";
 
-import React from "react";
-import { Heart, ExternalLink, TrendingUp, Sparkles } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Heart, ExternalLink, Sparkles } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useFavorites } from "@/components/FavoritesProvider";
+import { getVisitorId } from "@/lib/visitor";
 import {
   CATEGORY_GRADIENT,
   CATEGORY_DOT,
   GEO_FLAGS,
   GEO_NAMES,
-  PAYOUT_MODEL_LABELS,
+  offerImages,
   type Offer,
 } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
@@ -44,15 +45,25 @@ function GeoStrip({ geo }: { geo: string[] }) {
 }
 
 export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { isSaved, toggle } = useFavorites();
   const saved = isSaved(offer._id);
+  const [slide, setSlide] = useState(0);
+  const [visitorId, setVisitorId] = useState("");
+
+  // Read on mount only — localStorage is unavailable during SSR.
+  useEffect(() => setVisitorId(getVisitorId()), []);
 
   const categories = offer.category ?? [];
   const primary = categories[0] ?? "dating";
+  const images = offerImages(offer);
+  const cover = images[Math.min(slide, Math.max(images.length - 1, 0))];
   const isNew =
     offer.launch_date != null &&
     Date.now() - new Date(offer.launch_date).getTime() < 1000 * 60 * 60 * 24 * 90;
+
+  // The real destination stays on the server — visitors always go through /go/{id}.
+  const target = `/go/${offer._id}?v=${encodeURIComponent(visitorId || "anonymous")}&lang=${lang}`;
 
   return (
     <article
@@ -60,9 +71,9 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
       style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
     >
       <div className="relative h-32 overflow-hidden">
-        {offer.image_url ? (
+        {cover ? (
           <img
-            src={offer.image_url}
+            src={cover}
             alt={offer.name}
             loading="lazy"
             className="h-full w-full object-cover opacity-55 transition duration-500 group-hover:scale-110 group-hover:opacity-75"
@@ -100,6 +111,23 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
           <Heart className={cn("h-4 w-4 transition", saved && "fill-current scale-110")} />
         </button>
 
+        {images.length > 1 && (
+          <div className="absolute bottom-2 right-3 flex items-center gap-1">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`${offer.name} — ${i + 1}`}
+                onClick={() => setSlide(i)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === slide ? "w-4 bg-white" : "w-1.5 bg-white/40 hover:bg-white/70"
+                )}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
           <h3 className="font-display text-[15px] font-bold leading-tight text-white drop-shadow-lg">
             {offer.name}
@@ -118,37 +146,21 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
               {t(`cat_${c}`)}
             </span>
           ))}
-          {(offer.payout_model ?? []).map((m) => (
-            <span
-              key={m}
-              className="rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-violet-200 ring-1 ring-inset ring-violet-300/25"
-            >
-              {PAYOUT_MODEL_LABELS[m] ?? m}
-            </span>
-          ))}
         </div>
+
+        {offer.description && (
+          <p className="line-clamp-3 text-[12.5px] leading-relaxed text-white/55">
+            {offer.description}
+          </p>
+        )}
 
         <GeoStrip geo={offer.geo ?? []} />
 
-        <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/5 pt-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">
-              {offer.network}
-            </p>
-            <p className="font-display text-lg font-extrabold leading-tight text-emerald-300">
-              {offer.payout_label}
-            </p>
-            {offer.epc != null && (
-              <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-white/45">
-                <TrendingUp className="h-3 w-3" /> {t("epc")} ${offer.epc.toFixed(2)}
-              </p>
-            )}
-          </div>
-
+        <div className="mt-auto flex items-center justify-end gap-3 border-t border-white/5 pt-3">
           <a
-            href={offer.offer_url || "#"}
+            href={target}
             target="_blank"
-            rel="noopener noreferrer nofollow sponsored"
+            rel="noopener noreferrer nofollow"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-[0_10px_28px_-12px_rgba(217,70,239,0.95)] transition hover:brightness-110 active:scale-95"
           >
             {t("open_offer")}
@@ -162,10 +174,11 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
 
 export function OfferCardSkeleton() {
   return (
-    <div className="fp-card h-[300px] animate-pulse rounded-3xl">
+    <div className="fp-card h-[340px] animate-pulse rounded-3xl">
       <div className="h-32 rounded-t-3xl bg-white/5" />
       <div className="space-y-3 p-4">
         <div className="h-4 w-2/3 rounded bg-white/5" />
+        <div className="h-3 w-full rounded bg-white/5" />
         <div className="h-3 w-1/2 rounded bg-white/5" />
         <div className="h-8 w-full rounded bg-white/5" />
       </div>

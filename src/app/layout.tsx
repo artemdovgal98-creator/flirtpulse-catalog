@@ -25,9 +25,9 @@ const body = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "FlirtPulse AI — Affiliate catalog for dating & cams",
+  title: "FlirtPulse — каталог сервисов и платформ",
   description:
-    "230+ curated dating, webcam and live cam affiliate offers from CrakRevenue and partner networks, with an AI assistant that speaks 12 languages.",
+    "260+ отобранных сервисов знакомств, вебкама, живых камер и полезных платформ с AI-ассистентом на 12 языках.",
 };
 
 // SUPER IMPORTANT: NOT EDIT THE FOLLOWING 2 LINES TO FORCE NEXT.JS TO RENDER DYNAMICALLY

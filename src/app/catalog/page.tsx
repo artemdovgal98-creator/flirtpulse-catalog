@@ -12,8 +12,6 @@ import {
   GEO_FLAGS,
   GEO_NAMES,
   PAGE_SIZE,
-  PAYOUT_MODELS,
-  PAYOUT_MODEL_LABELS,
   SORT_OPTIONS,
   type Offer,
   type SortOption,
@@ -70,7 +68,6 @@ function CatalogView() {
     (searchParams.get("category") || "").split(",").filter(Boolean)
   );
   const [geos, setGeos] = useState<string[]>([]);
-  const [models, setModels] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>("relevance");
   const [geoSearch, setGeoSearch] = useState("");
 
@@ -95,13 +92,12 @@ function CatalogView() {
       if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
       if (cats.length) params.set("categories", cats.join(","));
       if (geos.length) params.set("geos", geos.join(","));
-      if (models.length) params.set("models", models.join(","));
       params.set("sort", sort);
       params.set("offset", String(offset));
       params.set("limit", String(PAGE_SIZE));
       return params.toString();
     },
-    [debouncedQuery, cats, geos, models, sort]
+    [debouncedQuery, cats, geos, sort]
   );
 
   // Reload from the first page whenever a filter changes.
@@ -116,7 +112,7 @@ function CatalogView() {
         setItems(res.data.items);
         setTotal(res.data.total);
         setHasMore(res.data.hasMore);
-        console.log(`[catalog] loaded ${res.data.items.length}/${res.data.total} offers`);
+        console.log(`[catalog] loaded ${res.data.items.length}/${res.data.total} services`);
       } else {
         console.error("[catalog] failed to load offers:", res.error);
         setError(typeof res.error === "string" ? res.error : "Could not load offers");
@@ -138,7 +134,7 @@ function CatalogView() {
       if (res.ok && res.data) {
         setItems((prev) => [...prev, ...res.data!.items]);
         setHasMore(res.data.hasMore);
-        console.log(`[catalog] loaded ${res.data.items.length} more offers`);
+        console.log(`[catalog] loaded ${res.data.items.length} more services`);
       } else {
         console.error("[catalog] failed to load more offers:", res.error);
       }
@@ -161,12 +157,11 @@ function CatalogView() {
   const toggleIn = (list: string[], setList: (v: string[]) => void, value: string) =>
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
-  const activeCount = cats.length + geos.length + models.length;
+  const activeCount = cats.length + geos.length;
 
   const clearAll = () => {
     setCats([]);
     setGeos([]);
-    setModels([]);
     setQuery("");
     setSort("relevance");
   };
@@ -268,19 +263,6 @@ function CatalogView() {
                     {CATEGORIES.map((c) => (
                       <Chip key={c} active={cats.includes(c)} onClick={() => toggleIn(cats, setCats, c)}>
                         {t(`cat_${c}`)}
-                      </Chip>
-                    ))}
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="mb-2.5 text-[11px] font-extrabold uppercase tracking-widest text-white/40">
-                    {t("filters_payout")}
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {PAYOUT_MODELS.map((m) => (
-                      <Chip key={m} active={models.includes(m)} onClick={() => toggleIn(models, setModels, m)}>
-                        {PAYOUT_MODEL_LABELS[m]}
                       </Chip>
                     ))}
                   </div>
