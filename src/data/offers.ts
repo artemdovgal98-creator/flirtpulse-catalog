@@ -15,6 +15,7 @@
  */
 
 import { offerCovers } from "../../assets/files";
+import { COMPANIES } from "./companies";
 
 export type OfferRow = [string, string, string, number, string, string, number];
 
@@ -458,9 +459,32 @@ function buildUseful(row: UsefulRow, index: number): OfferSeed {
   };
 }
 
+/**
+ * The five partner companies, rendered as regular catalog cards so they can be
+ * searched and filtered exactly like every other service.
+ */
+export function buildCompanySeeds(): OfferSeed[] {
+  return COMPANIES.map((company, i) => ({
+    name: company.name,
+    slug: company.slug,
+    description: company.description,
+    category: ["useful"],
+    network: "Direct",
+    geo: company.geo,
+    tags: cleanTags(company.tags),
+    quality_score: company.quality_score,
+    offer_url: company.site,
+    image_url: company.logo,
+    launch_date: new Date(Date.UTC(2026, 8, 10) - i * 86400000).toISOString(),
+    is_featured: "yes",
+    is_custom: "no",
+    status: "active",
+  }));
+}
+
 /** Builds the complete catalog: dating, webcam, live cams, regional editions and useful services. */
 export function buildOfferSeeds(): OfferSeed[] {
-  const seeds: OfferSeed[] = [];
+  const seeds: OfferSeed[] = [...buildCompanySeeds()];
 
   CRAKREVENUE_ROWS.forEach((row, i) => seeds.push(buildOffer(row, "CrakRevenue", i)));
 
@@ -492,6 +516,7 @@ export function buildOfferSeeds(): OfferSeed[] {
 }
 
 export const TOTAL_SEED_COUNT =
+  COMPANIES.length +
   CRAKREVENUE_ROWS.length +
   PARTNER_ROWS.length +
   VITRINE_BASES.length * GEO_PACKS.length +

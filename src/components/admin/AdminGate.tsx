@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { KeyRound, Loader2, Lock, ShieldCheck, Unlock } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, setAdminToken } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { AdminStats } from "@/components/admin/AdminStats";
 import { ShowcaseManager } from "@/components/admin/ShowcaseManager";
@@ -28,6 +28,9 @@ export function AdminGate() {
   useEffect(() => {
     api.get<{ isAdmin: boolean }>("/api/admin/me").then((res) => {
       const isAdmin = Boolean(res.ok && res.data?.isAdmin);
+      // A stored token the server no longer accepts is dead weight — drop it so
+      // the password form is shown instead of a panel that answers "Forbidden".
+      if (!isAdmin) setAdminToken("");
       setUnlocked(isAdmin);
       setChecking(false);
       console.log("[admin-gate] panel unlocked:", isAdmin);
@@ -40,7 +43,10 @@ export function AdminGate() {
 
     setSubmitting(true);
     setError(false);
-    const res = await api.post<{ unlocked: boolean }>("/api/admin/unlock", { password });
+    const res = await api.post<{ unlocked: boolean; token?: string }>(
+      "/api/admin/unlock",
+      { password }
+    );
     setSubmitting(false);
 
     if (!res.ok) {
@@ -49,6 +55,10 @@ export function AdminGate() {
       toast.error(t("admin_wrong_password"));
       return;
     }
+
+    // Mirror of the httpOnly cookie — replayed as `x-admin-token` so the panel
+    // also works inside the Totalum preview iframe, where cookies are blocked.
+    setAdminToken(res.data?.token ?? "");
 
     setPassword("");
     setUnlocked(true);
@@ -59,6 +69,9 @@ export function AdminGate() {
 
   async function lock() {
     const res = await api.delete("/api/admin/unlock");
+    // The token mirror must go even if the server call fails, otherwise the
+    // browser would keep re-authenticating itself with the stored header.
+    setAdminToken("");
     if (!res.ok) {
       console.error("[admin-gate] lock failed:", res.error);
       toast.error(String(res.error ?? "Error"));

@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { ADMIN_COOKIE, createAdminToken, isAdminPassword } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-const isHttps = (process.env.NEXT_PUBLIC_APP_URL || "").startsWith("https://");
+/**
+ * The panel is served over HTTPS behind the Totalum proxy, so the cookie can be
+ * `SameSite=None; Secure` — without that, browsers drop it when the app runs
+ * inside the Totalum preview iframe and every admin call answers "Forbidden".
+ * On plain HTTP (local runs) `SameSite=None` would be rejected, so we fall back
+ * to `Lax`.
+ */
+async function isSecureRequest(request: Request): Promise<boolean> {
+  const headerStore = await headers();
+  const proto =
+    headerStore.get("x-forwarded-proto") ||
+    headerStore.get("cf-visitor")?.match(/"scheme":"(\w+)"/)?.[1] ||
+    new URL(request.url).protocol.replace(":", "");
+  return proto.split(",")[0].trim() === "https";
+}
 
 /** Unlocks the admin panel with the password and sets the signed httpOnly cookie. */
 export async function POST(request: Request) {
@@ -18,16 +33,23 @@ export async function POST(request: Request) {
     }
 
     const token = await createAdminToken();
-    const response = NextResponse.json({ ok: true, data: { unlocked: true } });
+    const secure = await isSecureRequest(request);
+
+    // The token also travels in the body so the client can echo it back as
+    // `x-admin-token` when third-party cookies are blocked.
+    const response = NextResponse.json({
+      ok: true,
+      data: { unlocked: true, token: token.value, expiresIn: token.maxAge },
+    });
     response.cookies.set(ADMIN_COOKIE, token.value, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: isHttps,
+      sameSite: secure ? "none" : "lax",
+      secure,
       path: "/",
       maxAge: token.maxAge,
     });
 
-    console.log("[API /admin/unlock] admin panel unlocked");
+    console.log(`[API /admin/unlock] admin panel unlocked (secure cookie=${secure})`);
     return response;
   } catch (err: any) {
     console.error("[API ERROR] POST /api/admin/unlock", err);
@@ -36,10 +58,17 @@ export async function POST(request: Request) {
 }
 
 /** Locks the panel again by clearing the cookie. */
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
+    const secure = await isSecureRequest(request);
     const response = NextResponse.json({ ok: true, data: { unlocked: false } });
-    response.cookies.set(ADMIN_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
+    response.cookies.set(ADMIN_COOKIE, "", {
+      httpOnly: true,
+      sameSite: secure ? "none" : "lax",
+      secure,
+      path: "/",
+      maxAge: 0,
+    });
     console.log("[API /admin/unlock] admin panel locked");
     return response;
   } catch (err: any) {

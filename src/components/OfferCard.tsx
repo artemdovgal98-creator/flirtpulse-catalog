@@ -13,6 +13,7 @@ import {
   offerImages,
   type Offer,
 } from "@/lib/catalog";
+import { COMPANY_BY_NAME } from "@/data/companies";
 import { cn } from "@/lib/utils";
 
 function GeoStrip({ geo }: { geo: string[] }) {
@@ -58,6 +59,9 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
   const primary = categories[0] ?? "dating";
   const images = offerImages(offer);
   const cover = images[Math.min(slide, Math.max(images.length - 1, 0))];
+  // Company cards carry a square logo, not a photo: it must be shown whole and
+  // at full brightness instead of being cropped and dimmed like a cover image.
+  const company = COMPANY_BY_NAME[offer.name?.toLowerCase() ?? ""];
   const isNew =
     offer.launch_date != null &&
     Date.now() - new Date(offer.launch_date).getTime() < 1000 * 60 * 60 * 24 * 90;
@@ -71,7 +75,21 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
       style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
     >
       <div className="relative h-32 overflow-hidden">
-        {cover ? (
+        {company ? (
+          <div
+            className={cn(
+              "flex h-full w-full items-center justify-center bg-gradient-to-br p-5",
+              company.accent
+            )}
+          >
+            <img
+              src={company.logo}
+              alt={company.name}
+              loading="lazy"
+              className="h-16 w-16 object-contain drop-shadow-[0_6px_18px_rgba(0,0,0,0.55)] transition duration-500 group-hover:scale-110"
+            />
+          </div>
+        ) : cover ? (
           <img
             src={cover}
             alt={offer.name}
@@ -81,7 +99,12 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
         ) : (
           <div className={cn("h-full w-full bg-gradient-to-br", CATEGORY_GRADIENT[primary])} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#171029] via-[#171029]/60 to-transparent" />
+        <div
+          className={cn(
+            "absolute inset-0 bg-gradient-to-t from-[#171029] to-transparent",
+            company ? "via-[#171029]/10" : "via-[#171029]/60"
+          )}
+        />
 
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           {offer.is_featured === "yes" && (

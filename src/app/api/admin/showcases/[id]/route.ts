@@ -27,11 +27,18 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       throw new Error(JSON.stringify(updated.errors));
     }
 
+    // `editRecordById` answers with a write receipt ({ acknowledged, modifiedCount }),
+    // NOT with the record. Re-reading it is what makes the admin list show the new
+    // title, description and images instead of silently keeping the old ones.
+    const saved = await totalumSdk.crud.getRecordById("offer", id);
+    if (saved.errors) console.error("[API /admin/showcases/:id] re-read errors:", saved.errors);
+    const item = (saved.data as any) ?? { _id: id, ...payload };
+
     console.log(
-      `[API /admin/showcases/:id] updated ${id} ("${normalised.value.name}") link=${normalised.value.offer_url || "-"}`
+      `[API /admin/showcases/:id] updated ${id} ("${item.name}") desc=${(item.description || "").length} chars images=${(item.images || []).length} link=${item.offer_url || "-"}`
     );
 
-    return NextResponse.json({ ok: true, data: { item: updated.data } });
+    return NextResponse.json({ ok: true, data: { item } });
   } catch (err: any) {
     console.error("[API ERROR] PUT /api/admin/showcases/[id]", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });

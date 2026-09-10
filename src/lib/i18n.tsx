@@ -7,25 +7,13 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { RTL_LANGS as RTL, type Lang as LangCode } from "@/lib/languages";
 
-export const LANGUAGES = [
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "uk", label: "Українська", flag: "🇺🇦" },
-  { code: "ru", label: "Русский", flag: "🇷🇺" },
-  { code: "pl", label: "Polski", flag: "🇵🇱" },
-  { code: "de", label: "Deutsch", flag: "🇩🇪" },
-  { code: "fr", label: "Français", flag: "🇫🇷" },
-  { code: "es", label: "Español", flag: "🇪🇸" },
-  { code: "pt", label: "Português", flag: "🇵🇹" },
-  { code: "it", label: "Italiano", flag: "🇮🇹" },
-  { code: "tr", label: "Türkçe", flag: "🇹🇷" },
-  { code: "ar", label: "العربية", flag: "🇸🇦" },
-  { code: "zh", label: "中文", flag: "🇨🇳" },
-] as const;
+// Single source of truth lives in `@/lib/languages` so server routes can read it too.
+export { LANGUAGES, RTL_LANGS, LANGUAGE_COUNT } from "@/lib/languages";
+export type { Lang } from "@/lib/languages";
 
-export type Lang = (typeof LANGUAGES)[number]["code"];
-export const RTL_LANGS: Lang[] = ["ar"];
-
+type Lang = LangCode;
 type Dict = Record<string, string>;
 
 const en: Dict = {
@@ -96,7 +84,7 @@ const en: Dict = {
   ai_s4: "Useful services for everyday life",
   home_badge: "18+ • Curated services",
   home_title: "Your pulse on the best services",
-  home_sub: "230+ hand-picked dating, webcam, live cam and everyday services — with an AI assistant that speaks your language.",
+  home_sub: "Hand-picked dating, webcam, live cam and everyday services — with an AI assistant that speaks your language.",
   home_cta: "Open catalog",
   home_cta2: "Ask the AI",
   home_stat_offers: "Services",
@@ -109,6 +97,14 @@ const en: Dict = {
   new_badge: "NEW",
   sort_popular: "Popular",
   cat_useful: "Useful",
+  home_companies: "Companies and platforms",
+  home_companies_sub: "Five partner companies integrated into the catalog",
+  admin_reset: "Reset statistics",
+  admin_reset_confirm: "Reset all statistics? Clicks, online sessions and per-showcase counters will be set to zero. This cannot be undone.",
+  admin_reset_done: "Statistics reset",
+  admin_session_expired: "The admin session has expired — unlock the panel again",
+  admin_uploaded: "Images uploaded",
+  admin_upload_failed: "The images could not be uploaded",
   prof_about: "About the project",
   admin_title: "Admin dashboard",
   admin_subtitle: "Live analytics and showcase management",
@@ -245,7 +241,7 @@ const ru: Dict = {
   ai_s4: "Полезные сервисы на каждый день",
   home_badge: "18+ • Проверенные сервисы",
   home_title: "Пульс лучших сервисов",
-  home_sub: "230+ отобранных сервисов знакомств, вебкама, живых камер и полезных платформ — с AI-ассистентом на вашем языке.",
+  home_sub: "Отобранные сервисы знакомств, вебкама, живых камер и полезные платформы — с AI-ассистентом на вашем языке.",
   home_cta: "Открыть каталог",
   home_cta2: "Спросить AI",
   home_stat_offers: "Сервисов",
@@ -258,6 +254,14 @@ const ru: Dict = {
   new_badge: "НОВОЕ",
   sort_popular: "Популярные",
   cat_useful: "Полезное",
+  home_companies: "Компании и платформы",
+  home_companies_sub: "Пять партнёрских компаний, интегрированных в каталог",
+  admin_reset: "Сбросить статистику",
+  admin_reset_confirm: "Сбросить всю статистику? Клики, онлайн-сессии и счётчики витрин будут обнулены. Действие необратимо.",
+  admin_reset_done: "Статистика сброшена",
+  admin_session_expired: "Сессия администратора истекла — разблокируйте панель заново",
+  admin_uploaded: "Изображения загружены",
+  admin_upload_failed: "Не удалось загрузить изображения",
   prof_about: "О проекте",
   admin_title: "Панель администратора",
   admin_subtitle: "Аналитика в реальном времени и управление витринами",
@@ -394,7 +398,7 @@ const uk: Dict = {
   ai_s4: "Корисні сервіси на щодень",
   home_badge: "18+ • Перевірені сервіси",
   home_title: "Пульс найкращих сервісів",
-  home_sub: "230+ відібраних сервісів знайомств, вебкаму, живих камер і корисних платформ — з AI-асистентом вашою мовою.",
+  home_sub: "Відібрані сервіси знайомств, вебкаму, живих камер і корисні платформи — з AI-асистентом вашою мовою.",
   home_cta: "Відкрити каталог",
   home_cta2: "Запитати AI",
   home_stat_offers: "Сервісів",
@@ -479,7 +483,7 @@ const pl: Dict = {
   ai_s4: "Przydatne serwisy na co dzień",
   home_badge: "18+ • Sprawdzone serwisy",
   home_title: "Puls najlepszych serwisów",
-  home_sub: "230+ wyselekcjonowanych serwisów randkowych, kamerkowych, live i przydatnych platform — z asystentem AI w Twoim języku.",
+  home_sub: "Wyselekcjonowane serwisy randkowe, kamerkowe, live i przydatne platformy — z asystentem AI w Twoim języku.",
   home_cta: "Otwórz katalog",
   home_cta2: "Zapytaj AI",
   home_stat_offers: "Serwisów",
@@ -564,7 +568,7 @@ const de: Dict = {
   ai_s4: "Nützliche Dienste für den Alltag",
   home_badge: "18+ • Geprüfte Dienste",
   home_title: "Der Puls der besten Dienste",
-  home_sub: "230+ handverlesene Dating-, Webcam-, Live-Cam- und Alltagsdienste — mit einem KI-Assistenten in deiner Sprache.",
+  home_sub: "Handverlesene Dating-, Webcam-, Live-Cam- und Alltagsdienste — mit einem KI-Assistenten in deiner Sprache.",
   home_cta: "Katalog öffnen",
   home_cta2: "KI fragen",
   home_stat_offers: "Dienste",
@@ -649,7 +653,7 @@ const fr: Dict = {
   ai_s4: "Services utiles au quotidien",
   home_badge: "18+ • Services sélectionnés",
   home_title: "Le pouls des meilleurs services",
-  home_sub: "230+ services de rencontres, webcam, cams en direct et du quotidien, sélectionnés à la main — avec un assistant IA dans votre langue.",
+  home_sub: "Des services de rencontres, webcam, cams en direct et du quotidien, sélectionnés à la main — avec un assistant IA dans votre langue.",
   home_cta: "Ouvrir le catalogue",
   home_cta2: "Demander à l'IA",
   home_stat_offers: "Services",
@@ -734,7 +738,7 @@ const es: Dict = {
   ai_s4: "Servicios útiles para el día a día",
   home_badge: "18+ • Servicios seleccionados",
   home_title: "El pulso de los mejores servicios",
-  home_sub: "230+ servicios de citas, webcam, cámaras en vivo y del día a día seleccionados a mano — con un asistente IA en tu idioma.",
+  home_sub: "Servicios de citas, webcam, cámaras en vivo y del día a día seleccionados a mano — con un asistente IA en tu idioma.",
   home_cta: "Abrir catálogo",
   home_cta2: "Preguntar a la IA",
   home_stat_offers: "Servicios",
@@ -819,7 +823,7 @@ const pt: Dict = {
   ai_s4: "Serviços úteis para o dia a dia",
   home_badge: "18+ • Serviços selecionados",
   home_title: "O pulso dos melhores serviços",
-  home_sub: "230+ serviços de encontros, webcam, câmaras ao vivo e do dia a dia escolhidos a dedo — com um assistente IA no seu idioma.",
+  home_sub: "Serviços de encontros, webcam, câmaras ao vivo e do dia a dia escolhidos a dedo — com um assistente IA no seu idioma.",
   home_cta: "Abrir catálogo",
   home_cta2: "Perguntar à IA",
   home_stat_offers: "Serviços",
@@ -904,7 +908,7 @@ const it: Dict = {
   ai_s4: "Servizi utili per ogni giorno",
   home_badge: "18+ • Servizi selezionati",
   home_title: "Il battito dei migliori servizi",
-  home_sub: "230+ servizi di incontri, webcam, cam dal vivo e di uso quotidiano selezionati a mano — con un assistente IA nella tua lingua.",
+  home_sub: "Servizi di incontri, webcam, cam dal vivo e di uso quotidiano selezionati a mano — con un assistente IA nella tua lingua.",
   home_cta: "Apri catalogo",
   home_cta2: "Chiedi all'IA",
   home_stat_offers: "Servizi",
@@ -989,7 +993,7 @@ const tr: Dict = {
   ai_s4: "Günlük hayat için faydalı servisler",
   home_badge: "18+ • Seçilmiş servisler",
   home_title: "En iyi servislerin nabzı",
-  home_sub: "Elle seçilmiş 230+ flört, webcam, canlı kamera ve günlük servis — kendi dilinizde konuşan bir AI asistanla.",
+  home_sub: "Elle seçilmiş flört, webcam, canlı kamera ve günlük servisler — kendi dilinizde konuşan bir AI asistanla.",
   home_cta: "Kataloğu aç",
   home_cta2: "AI'ya sor",
   home_stat_offers: "Servis",
@@ -1074,7 +1078,7 @@ const ar: Dict = {
   ai_s4: "خدمات مفيدة للحياة اليومية",
   home_badge: "+18 • خدمات مختارة",
   home_title: "نبض أفضل الخدمات",
-  home_sub: "أكثر من 230 خدمة مختارة بعناية للمواعدة والكاميرات والبث المباشر والحياة اليومية — مع مساعد ذكي بلغتك.",
+  home_sub: "خدمات مختارة بعناية للمواعدة والكاميرات والبث المباشر والحياة اليومية — مع مساعد ذكي بلغتك.",
   home_cta: "فتح الكتالوج",
   home_cta2: "اسأل الذكاء الاصطناعي",
   home_stat_offers: "خدمة",
@@ -1158,7 +1162,7 @@ const zh: Dict = {
   ai_s4: "日常生活实用服务",
   home_badge: "18+ • 精选服务",
   home_title: "最佳服务的脉搏",
-  home_sub: "230+ 精心挑选的约会、视频聊天、直播与日常实用服务 — 还有会说你语言的 AI 助手。",
+  home_sub: "精心挑选的约会、视频聊天、直播与日常实用服务 — 还有会说你语言的 AI 助手。",
   home_cta: "打开目录",
   home_cta2: "咨询 AI",
   home_stat_offers: "服务",
@@ -1203,7 +1207,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const dir = RTL_LANGS.includes(lang) ? "rtl" : "ltr";
+    const dir = RTL.includes(lang) ? "rtl" : "ltr";
     document.documentElement.setAttribute("lang", lang);
     document.documentElement.setAttribute("dir", dir);
   }, [lang]);
@@ -1230,7 +1234,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       lang,
       setLang,
       t: (key: string) => dict[key] ?? en[key] ?? key,
-      dir: RTL_LANGS.includes(lang) ? "rtl" : "ltr",
+      dir: RTL.includes(lang) ? "rtl" : "ltr",
     };
   }, [lang, setLang]);
 

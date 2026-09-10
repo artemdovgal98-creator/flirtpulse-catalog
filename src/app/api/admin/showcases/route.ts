@@ -100,9 +100,21 @@ export async function POST(request: Request) {
       throw new Error(JSON.stringify(created.errors));
     }
 
-    console.log(`[API /admin/showcases] created "${record.name}" -> ${(created.data as any)?._id}`);
+    // `createRecord` answers with { acknowledged, insertedId } — read the row back
+    // so the client receives the real card (with signed image URLs), not a receipt.
+    const newId = (created.data as any)?.insertedId ?? (created.data as any)?._id;
+    let item: any = { _id: newId, ...record };
+    if (newId) {
+      const saved = await totalumSdk.crud.getRecordById("offer", String(newId));
+      if (saved.errors) console.error("[API /admin/showcases] re-read errors:", saved.errors);
+      if (saved.data) item = saved.data;
+    }
 
-    return NextResponse.json({ ok: true, data: { item: created.data } });
+    console.log(
+      `[API /admin/showcases] created "${item.name}" -> ${newId} desc=${(item.description || "").length} chars images=${(item.images || []).length}`
+    );
+
+    return NextResponse.json({ ok: true, data: { item } });
   } catch (err: any) {
     console.error("[API ERROR] POST /api/admin/showcases", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });

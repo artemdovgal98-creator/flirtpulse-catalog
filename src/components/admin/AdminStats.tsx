@@ -3,8 +3,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Users, MousePointerClick, Radio, LayoutGrid, CalendarDays, UserPlus,
-  RefreshCw, Loader2, TrendingUp,
+  RefreshCw, Loader2, TrendingUp, Eraser,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { CATEGORY_DOT } from "@/lib/catalog";
@@ -68,6 +69,7 @@ export function AdminStats() {
   const { t } = useI18n();
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
@@ -89,6 +91,25 @@ export function AdminStats() {
     const timer = window.setInterval(() => load(true), REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  /** Wipes the recorded clicks, presence sessions and per-showcase counters. */
+  async function reset() {
+    if (!window.confirm(t("admin_reset_confirm"))) return;
+    setResetting(true);
+    const res = await api.post<{ clicks: number; sessions: number; offers: number }>(
+      "/api/admin/stats/reset",
+      {}
+    );
+    setResetting(false);
+    if (!res.ok) {
+      console.error("[admin] stats reset failed:", res.error);
+      toast.error(String(res.error ?? "Error"));
+      return;
+    }
+    console.log("[admin] statistics reset:", res.data);
+    toast.success(t("admin_reset_done"));
+    load();
+  }
 
   if (loading && !stats) {
     return (
@@ -112,14 +133,25 @@ export function AdminStats() {
           <h2 className="font-display text-lg font-extrabold text-white">{t("admin_title")}</h2>
           <p className="text-xs text-white/40">{t("admin_subtitle")}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => load()}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/70 transition hover:border-fuchsia-400/40 hover:text-white active:scale-95"
-        >
-          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-          {t("admin_refresh")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => load()}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/70 transition hover:border-fuchsia-400/40 hover:text-white active:scale-95"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            {t("admin_refresh")}
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            disabled={resetting}
+            className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-200 transition hover:bg-rose-500/20 active:scale-95 disabled:opacity-60"
+          >
+            {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eraser className="h-3.5 w-3.5" />}
+            {t("admin_reset")}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">

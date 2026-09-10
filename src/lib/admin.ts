@@ -82,6 +82,9 @@ async function isTokenValid(token: string | undefined): Promise<boolean> {
   return safeEqual(await sign(rawExpiry), signature);
 }
 
+/** Header used when the browser refuses to send the cookie (third-party iframe). */
+export const ADMIN_HEADER = "x-admin-token";
+
 export interface AdminGuardResult {
   userId: string | null;
   email: string | null;
@@ -94,19 +97,33 @@ export interface AdminGuardResult {
 /**
  * Resolves whether the caller may use the admin panel.
  *
- * Access requires the admin password: unlocking sets a short-lived HMAC-signed
- * httpOnly cookie that the client cannot forge or read. The session is looked up
- * only to label the dashboard — it never grants access on its own.
+ * Access requires the admin password: unlocking issues a short-lived HMAC-signed
+ * token, delivered both as an httpOnly cookie and to the client so it can be
+ * echoed back in the `x-admin-token` header. Either one unlocks the panel — the
+ * header path is what keeps the dashboard working inside the Totalum preview
+ * iframe, where browsers block third-party cookies. Neither can be forged: the
+ * signature is HMAC-SHA256 over the expiry with the server secret.
+ *
+ * The auth session is looked up only to label the dashboard — it never grants
+ * access on its own.
  */
 export async function getAdminGuard(): Promise<AdminGuardResult> {
   try {
-    const cookieStore = await cookies();
-    const unlocked = await isTokenValid(cookieStore.get(ADMIN_COOKIE)?.value);
+    const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+
+    const cookieToken = cookieStore.get(ADMIN_COOKIE)?.value;
+    const headerToken = headerStore.get(ADMIN_HEADER) || undefined;
+    const unlocked =
+      (await isTokenValid(cookieToken)) || (await isTokenValid(headerToken));
+
+    if (!unlocked && (cookieToken || headerToken)) {
+      console.log("[admin-guard] a token was supplied but it is invalid or expired");
+    }
 
     let userId: string | null = null;
     let email: string | null = null;
     try {
-      const session = await auth.api.getSession({ headers: await headers() });
+      const session = await auth.api.getSession({ headers: headerStore });
       userId = session?.user?.id ?? null;
       email = session?.user?.email ?? null;
     } catch (err) {

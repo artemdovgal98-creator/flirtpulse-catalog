@@ -101,7 +101,9 @@ export function ShowcaseManager() {
       console.log(`[admin] loaded ${res.data.items.length} of ${res.data.total} showcases`);
     } else {
       console.error("[admin] showcase list failed:", res.error);
-      toast.error(String(res.error ?? "Error"));
+      toast.error(
+        res.error === "Forbidden" ? t("admin_session_expired") : String(res.error ?? "Error")
+      );
     }
     setLoading(false);
   }, [buildParams]);
@@ -178,8 +180,19 @@ export function ShowcaseManager() {
       toast.error(String(res.error ?? "Upload failed"));
       return;
     }
-    setForm((prev) => (prev ? { ...prev, images: [...prev.images, ...res.data!.files] } : prev));
-    console.log(`[admin] uploaded ${res.data.files.length} image(s)`);
+    const uploaded = res.data.files.filter((f) => f?.name);
+    if (!uploaded.length) {
+      console.error("[admin] upload returned no usable files:", res.data);
+      toast.error(t("admin_upload_failed"));
+      return;
+    }
+    setForm((prev) => {
+      if (!prev) return prev;
+      const fresh = uploaded.filter((f) => !prev.images.some((img) => img.name === f.name));
+      return { ...prev, images: [...prev.images, ...fresh].slice(0, MAX_IMAGES) };
+    });
+    toast.success(t("admin_uploaded"));
+    console.log(`[admin] uploaded ${uploaded.length} image(s):`, uploaded.map((f) => f.name).join(", "));
   }
 
   async function save() {
@@ -209,16 +222,22 @@ export function ShowcaseManager() {
 
     if (!res.ok) {
       console.error("[admin] save failed:", res.error);
-      toast.error(String(res.error ?? "Error"));
+      toast.error(
+        res.error === "Forbidden" ? t("admin_session_expired") : String(res.error ?? "Error")
+      );
       return;
     }
     toast.success(form._id ? t("admin_updated") : t("admin_created"));
-    console.log(`[admin] showcase saved: ${form.name} link=${form.offer_url || "-"}`);
 
     const saved = (res.data as { item?: AdminOffer } | undefined)?.item;
-    if (form._id && saved) {
-      // Patch the row in place so the current page (and scroll position) survives.
-      setItems((prev) => prev.map((it) => (it._id === form._id ? { ...it, ...saved } : it)));
+    console.log(
+      `[admin] showcase saved: "${saved?.name ?? form.name}" desc=${(saved?.description ?? "").length} chars images=${(saved?.images ?? []).length} link=${saved?.offer_url || "-"}`
+    );
+
+    if (form._id && saved?._id) {
+      // The API replies with the row as it now exists in the database, so the
+      // list shows the saved title/description/images — never a stale copy.
+      setItems((prev) => prev.map((it) => (it._id === form._id ? saved : it)));
       setForm(null);
       return;
     }
@@ -430,7 +449,7 @@ export function ShowcaseManager() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setForm({ ...form, status: form.status === "active" ? "hidden" : "active" })}
+              onClick={() => setForm({ ...form, status: form.status === "active" ? "paused" : "active" })}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition",
                 form.status === "active"

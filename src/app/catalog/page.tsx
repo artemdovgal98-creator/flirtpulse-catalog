@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X, ArrowUpDown, Loader2, SearchX } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { useRefreshOnFocus } from "@/lib/use-refresh-on-focus";
 import { OfferCard, OfferCardSkeleton } from "@/components/OfferCard";
 import {
   CATEGORIES,
@@ -100,8 +101,7 @@ function CatalogView() {
     [debouncedQuery, cats, geos, sort]
   );
 
-  // Reload from the first page whenever a filter changes.
-  useEffect(() => {
+  const loadFirstPage = useCallback(() => {
     const id = ++requestId.current;
     setLoading(true);
     setError("");
@@ -123,6 +123,15 @@ function CatalogView() {
       setLoading(false);
     });
   }, [queryString]);
+
+  // Reload from the first page whenever a filter changes.
+  useEffect(() => {
+    loadFirstPage();
+  }, [loadFirstPage]);
+
+  // …and again when the visitor returns to a tab that was left idle, so the
+  // list always matches what the server currently holds.
+  useRefreshOnFocus(loadFirstPage);
 
   const loadMore = useCallback(() => {
     if (loadingMore || loading || !hasMore) return;

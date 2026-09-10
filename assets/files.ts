@@ -33,4 +33,19 @@ export const offerCovers: string[] = [
   files.cover13, files.cover14, files.cover15, files.cover16,
 ];
 
+/**
+ * Company / partner logos shown on the home page and in the services catalog.
+ * Every URL below was verified to return a real image before being added here.
+ */
+export const companyLogos = {
+  zeydoo: "https://www.google.com/s2/favicons?domain=zeydoo.com&sz=256",
+  // Locally drawn monogram: Avwin publishes no public logo file.
+  avwin: "/logos/avwin.svg",
+  mylead: "https://www.google.com/s2/favicons?domain=mylead.global&sz=256",
+  crakrevenue: "https://www.google.com/s2/favicons?domain=crakrevenue.com&sz=256",
+  aiveksa: "https://www.google.com/s2/favicons?domain=aivix.com&sz=256",
+} as const;
+
+export type CompanyLogoKey = keyof typeof companyLogos;
+
 export default files;

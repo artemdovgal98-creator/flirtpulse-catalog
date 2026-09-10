@@ -14,15 +14,62 @@ export interface ApiResponse<T = unknown> {
   error?: any;
 }
 
+/**
+ * Admin unlock token mirror.
+ *
+ * The real credential is the httpOnly `fp_admin` cookie. When the app runs
+ * inside the Totalum preview iframe (a third-party context) the browser can
+ * refuse to send that cookie, and every /api/admin call used to answer
+ * "Forbidden". The same signed token is therefore also kept in localStorage and
+ * sent as `x-admin-token`; the server accepts either one.
+ */
+export const ADMIN_TOKEN_KEY = "fp_admin_token";
+
+export function getAdminToken(): string {
+  try {
+    return window.localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setAdminToken(token: string) {
+  try {
+    if (token) window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+    else window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+  } catch (err) {
+    console.error("[api] could not persist the admin token:", err);
+  }
+}
+
+function withDefaults(url: string, options?: RequestInit): RequestInit {
+  const headers = new Headers(options?.headers);
+
+  if (url.startsWith("/api/admin")) {
+    const token = getAdminToken();
+    if (token) headers.set("x-admin-token", token);
+  }
+
+  return {
+    ...options,
+    headers,
+    // Always hit the server: the catalog and the dashboard must never render
+    // a stale bfcache/HTTP-cache copy after an admin change.
+    cache: "no-store",
+    credentials: "include",
+  };
+}
+
 async function request<T>(
   url: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
   try {
-    const res = await fetch(url, options);
+    const res = await fetch(url, withDefaults(url, options));
     const json = (await res.json()) as ApiResponse<T>;
     return json;
   } catch (err) {
+    console.error(`[api] ${url} failed:`, err);
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
