@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { OfferCard } from "@/components/OfferCard";
 import type { Offer } from "@/lib/catalog";
+import { QuizCta } from "@/components/engage/QuizCta";
+import { AdSlot } from "@/components/ads/AdSlot";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -103,9 +105,14 @@ export default function AiChatPage() {
 
       <div className="flex-1 space-y-4">
         {messages.length === 0 && (
-          <div className="fp-card fp-rise rounded-3xl p-5">
-            <p className="text-sm leading-relaxed text-white/75">{t("ai_welcome")}</p>
-          </div>
+          <>
+            <div className="fp-card fp-rise rounded-3xl p-5">
+              <p className="text-sm leading-relaxed text-white/75">{t("ai_welcome")}</p>
+            </div>
+            {/* Prefer clicking to typing? The quiz gives a top 3 in 5 taps. */}
+            <QuizCta />
+            <AdSlot slot="ai_section" />
+          </>
         )}
 
         {messages.map((m, i) => (

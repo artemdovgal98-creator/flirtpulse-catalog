@@ -11,6 +11,7 @@ import { useFavorites } from "@/components/FavoritesProvider";
 import { api } from "@/lib/api";
 import { CATEGORIES } from "@/lib/catalog";
 import { AdminGate } from "@/components/admin/AdminGate";
+import { EngageSections } from "@/components/engage/ProfileSections";
 import { cn } from "@/lib/utils";
 
 const LEGAL_LINKS = [
@@ -162,6 +163,9 @@ export default function ProfilePage() {
         <span className="font-display text-2xl font-extrabold text-white">{ids.length}</span>
         <ChevronRight className="h-4 w-4 text-white/30" />
       </Link>
+
+      {/* Engagement: tools, subscriptions + push, Telegram, referral */}
+      <EngageSections />
 
       {/* Language selector */}
       <section className="fp-card fp-rise mt-4 rounded-3xl p-5">

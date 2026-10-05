@@ -2,14 +2,21 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, ShieldCheck, Globe2, Zap, Building2 } from "lucide-react";
+import { ArrowRight, Sparkles, ShieldCheck, Globe2, Zap, LayoutGrid } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { api } from "@/lib/api";
-import { OfferCard, OfferCardSkeleton } from "@/components/OfferCard";
-import { CATEGORIES, type Offer } from "@/lib/catalog";
-import { COMPANIES } from "@/data/companies";
+import { COLOR_SOFT } from "@/lib/catalog";
 import { useRefreshOnFocus } from "@/lib/use-refresh-on-focus";
+import { useCategories } from "@/components/CategoriesProvider";
+import { AdSlot } from "@/components/ads/AdSlot";
+import { QuizCta } from "@/components/engage/QuizCta";
+import { ForYou } from "@/components/engage/ForYou";
+import { RecentStrip } from "@/components/public/RecentStrip";
+import { countCategoryView } from "@/lib/recent";
 import { cn } from "@/lib/utils";
+
+/** Insert the in-grid ad after this many category tiles. */
+const AD_AFTER = 4;
 
 interface PublicStats {
   services: number;
@@ -29,25 +36,13 @@ const ZERO_STATS: PublicStats = {
 
 export default function HomePage() {
   const { t } = useI18n();
-  const [featured, setFeatured] = useState<Offer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { categories, ready, label } = useCategories();
   // Counters start at zero and are replaced by the live numbers from the
   // database — nothing on this page is hard-coded any more.
   const [stats, setStats] = useState<PublicStats>(ZERO_STATS);
 
   const load = useCallback(async () => {
-    const [offers, counters] = await Promise.all([
-      api.get<{ items: Offer[]; total: number }>("/api/offers?sort=relevance&limit=6"),
-      api.get<PublicStats>("/api/stats"),
-    ]);
-
-    if (offers.ok && offers.data) {
-      setFeatured(offers.data.items);
-      console.log(`[home] loaded ${offers.data.items.length} featured services of ${offers.data.total}`);
-    } else {
-      console.error("[home] could not load featured services:", offers.error);
-    }
-    setLoading(false);
+    const counters = await api.get<PublicStats>("/api/stats");
 
     if (counters.ok && counters.data) {
       setStats(counters.data);
@@ -124,101 +119,63 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Category shortcuts */}
-      <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {CATEGORIES.map((c, i) => (
-          <Link
-            key={c}
-            href={`/catalog?category=${c}`}
-            className={cn(
-              "fp-rise group relative overflow-hidden rounded-2xl border border-white/10 p-5 transition hover:-translate-y-1",
-              "bg-gradient-to-br",
-              c === "dating" && "from-rose-500/20 to-fuchsia-600/10",
-              c === "webcam" && "from-violet-500/20 to-indigo-600/10",
-              c === "live_cams" && "from-cyan-500/20 to-blue-600/10",
-              c === "useful" && "from-emerald-500/20 to-teal-600/10"
-            )}
-            style={{ animationDelay: `${i * 70}ms` }}
-          >
-            <p className="font-display text-lg font-bold text-white">{t(`cat_${c}`)}</p>
-            <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-white/50 transition group-hover:text-white/80">
-              {t("home_cta")} <ArrowRight className="h-3 w-3" />
-            </p>
-          </Link>
-        ))}
-      </section>
-
-      {/* Companies */}
-      <section className="mt-10">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="flex items-center gap-2 font-display text-xl font-extrabold text-white">
-              <Building2 className="h-5 w-5 text-fuchsia-300" />
-              {t("home_companies")}
-            </h2>
-            <p className="mt-1 text-xs text-white/40">{t("home_companies_sub")}</p>
-          </div>
-          <Link
-            href="/catalog?category=useful"
-            className="text-xs font-bold text-fuchsia-300 hover:text-fuchsia-200"
-          >
-            {t("home_cta")} →
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {COMPANIES.map((company, i) => (
-            <Link
-              key={company.slug}
-              href={`/catalog?q=${encodeURIComponent(company.name)}`}
-              className={cn(
-                "fp-rise group relative flex items-start gap-3 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 transition hover:-translate-y-1 hover:border-white/20",
-                company.accent
-              )}
-              style={{ animationDelay: `${i * 60}ms` }}
-            >
-              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-1.5">
-                <img
-                  src={company.logo}
-                  alt={company.name}
-                  loading="lazy"
-                  className="h-full w-full object-contain"
-                />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-display text-base font-extrabold text-white">
-                  {company.name}
-                </span>
-                <span className="mt-0.5 block text-[11px] font-semibold text-white/50">
-                  {company.tagline}
-                </span>
-                <span className="mt-2 line-clamp-2 block text-xs leading-relaxed text-white/45">
-                  {company.description}
-                </span>
-              </span>
-              <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-white/25 transition group-hover:text-white/70" />
-            </Link>
-          ))}
+      {/* Categories (managed in the admin, GEO-aware) */}
+      <section className="mt-8" aria-labelledby="home-categories">
+        <h2 id="home-categories" className="mb-4 flex items-center gap-2 font-display text-xl font-extrabold text-white">
+          <LayoutGrid className="h-5 w-5 text-fuchsia-300" />
+          {t("filters_categories")}
+        </h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {!ready
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="fp-card h-[104px] animate-pulse rounded-2xl" />
+              ))
+            : categories.map((c, i) => (
+                <React.Fragment key={c.key}>
+                  {i === AD_AFTER && (
+                    <div className="col-span-full">
+                      <AdSlot slot="home_between_categories" />
+                    </div>
+                  )}
+                  <Link
+                    href={`/catalog?category=${encodeURIComponent(c.key)}`}
+                    onClick={() => countCategoryView(c.key)}
+                    className={cn(
+                      "fp-rise group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 transition hover:-translate-y-1 hover:border-white/25 sm:p-5",
+                      COLOR_SOFT[c.color] ?? COLOR_SOFT.fuchsia
+                    )}
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <span className="pointer-events-none absolute -right-3 -top-4 text-6xl opacity-20 transition duration-500 group-hover:rotate-12 group-hover:scale-110 group-hover:opacity-35">
+                      {c.emoji}
+                    </span>
+                    <span className="relative block text-2xl leading-none">{c.emoji}</span>
+                    <p className="relative mt-3 font-display text-[15px] font-bold leading-tight text-white sm:text-lg">
+                      {label(c.key)}
+                    </p>
+                    <p className="relative mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-white/50 transition group-hover:text-white/80">
+                      {t("home_cta")} <ArrowRight className="h-3 w-3" />
+                    </p>
+                  </Link>
+                </React.Fragment>
+              ))}
+          {ready && categories.length > 0 && categories.length <= AD_AFTER && (
+            <div className="col-span-full">
+              <AdSlot slot="home_between_categories" />
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Top services */}
-      <section className="mt-10">
-        <div className="mb-4 flex items-end justify-between">
-          <h2 className="font-display text-xl font-extrabold text-white">
-            {t("featured")} · {t("nav_catalog")}
-          </h2>
-          <Link href="/catalog" className="text-xs font-bold text-fuchsia-300 hover:text-fuchsia-200">
-            {t("home_cta")} →
-          </Link>
-        </div>
+      <div className="mt-10 empty:hidden">
+        <QuizCta />
+      </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {loading
-            ? Array.from({ length: 6 }).map((_, i) => <OfferCardSkeleton key={i} />)
-            : featured.map((offer, i) => <OfferCard key={offer._id} offer={offer} index={i} />)}
-        </div>
-      </section>
+      <div className="mt-10 empty:hidden">
+        <ForYou />
+      </div>
+
+      <RecentStrip />
 
       <p className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center text-[11px] leading-relaxed text-white/40">
         {t("prof_age_warning")}

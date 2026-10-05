@@ -42,6 +42,34 @@ const publicRoutes = [
   "/cookie-policy",
   "/contacts",
 
+  // Public showcase pages, comparison, quiz, shared collections
+  "/offer",
+  "/compare",
+  "/quiz",
+  "/c",
+
+  // Public APIs (all /api/* is already let through below; listed for clarity)
+  "/api/postback",
+  "/api/categories",
+  "/api/i18n",
+  "/api/ticker",
+  "/api/notifications",
+  "/api/ads",
+  "/api/push",
+  "/api/geo",
+  "/api/quiz",
+  "/api/for-you",
+  "/api/compare",
+  "/api/reviews",
+  "/api/collections",
+  "/api/referral",
+  "/api/settings",
+
+  // PWA
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/icons",
+
   //stripe routes here
   "/stripe/demo",
   "/stripe/success",

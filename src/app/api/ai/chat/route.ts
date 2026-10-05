@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { totalumSdk } from "@/lib/totalum";
 import { GEO_NAMES, PRIVATE_OFFER_FIELDS } from "@/lib/catalog";
+import { decorateOffers } from "@/lib/server/offers";
+import { hiddenCategoryKeys } from "@/lib/server/categories";
+import { detectGeo } from "@/lib/server/geo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -60,6 +63,9 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   dating: ["dating", "date", "знакомств", "свидан", "знайомств", "randk", "rencontre", "citas", "encontro", "incontri", "flört", "مواعدة", "约会", "partnersuche"],
   webcam: ["webcam", "cam site", "вебкам", "вебка", "kamerk", "kamera", "cámara", "câmara", "webkam", "كاميرا", "视频聊天"],
   live_cams: ["live cam", "живые камер", "живі камер", "roulette", "рулетк", "live chat", "canlı", "en vivo", "dal vivo", "直播", "بث مباشر", "camera live"],
+  ai: ["ai ", " ai", "ии", "нейросет", "компаньон", "companion", "girlfriend", "boyfriend", "подруг", "бот", "chatbot", "ki-", "ia ", "yapay zeka", "ذكاء", "人工智能"],
+  games: ["game", "игр", "гра", "spiel", "jeu", "juego", "jogo", "gioco", "oyun", "gry", "لعبة", "游戏", "nutaku"],
+  sex_shop: ["sex shop", "секс шоп", "секс-шоп", "интим", "toys", "игрушк"],
   useful: ["useful", "полезн", "корисн", "vpn", "приватн", "безопасн", "podarok", "подарк", "перевод", "фото", "путешеств", "здоров", "przydatne", "nützlich", "utile", "útil", "faydalı", "مفيد", "实用", "tool", "инструмент"],
 };
 
@@ -93,8 +99,11 @@ export async function POST(request: Request) {
     const categories = detect(message, CATEGORY_KEYWORDS);
     const wantsWorldwide = NO_GEO_KEYWORDS.some((w) => message.toLowerCase().includes(w));
 
+    const hidden = await hiddenCategoryKeys(detectGeo(await headers()));
+    const allowed = categories.filter((c) => !hidden.includes(c));
     const filter: Record<string, any> = { status: "active" };
-    if (categories.length) filter.category = { in: categories };
+    if (allowed.length) filter.category = { in: allowed };
+    else if (hidden.length) filter.category = { nin: hidden };
     if (wantsWorldwide) filter.geo = { in: ["worldwide"] };
     else if (geos.length) filter.geo = { in: [...geos, "worldwide"] };
 
@@ -188,7 +197,7 @@ ${catalogSnippet}`;
       ok: true,
       data: {
         reply,
-        offers: offers.slice(0, 6).map((o) => {
+        offers: (await decorateOffers(offers.slice(0, 6), language)).map((o: any) => {
           // Defence in depth — nothing private ever reaches the chat UI.
           const safe = { ...o };
           for (const field of PRIVATE_OFFER_FIELDS) delete safe[field];

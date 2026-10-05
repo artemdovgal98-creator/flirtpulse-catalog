@@ -1,14 +1,17 @@
 "use client";
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Search, SlidersHorizontal, X, ArrowUpDown, Loader2, SearchX } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Search, SlidersHorizontal, X, ArrowUpDown, Loader2, SearchX, MapPin, Globe2 } from "lucide-react";
+import { useCategories } from "@/components/CategoriesProvider";
+import { AdSlot } from "@/components/ads/AdSlot";
+import { countCategoryView } from "@/lib/recent";
 import { useI18n } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { useRefreshOnFocus } from "@/lib/use-refresh-on-focus";
 import { OfferCard, OfferCardSkeleton } from "@/components/OfferCard";
 import {
-  CATEGORIES,
+  AI_SUBFILTERS,
   GEO_CODES,
   GEO_FLAGS,
   GEO_NAMES,
@@ -59,18 +62,28 @@ function Chip({
   );
 }
 
-function CatalogView() {
-  const { t } = useI18n();
-  const searchParams = useSearchParams();
+type GeoMode = "auto" | "all" | "custom";
 
-  const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
-  const [cats, setCats] = useState<string[]>(() =>
-    (searchParams.get("category") || "").split(",").filter(Boolean)
-  );
-  const [geos, setGeos] = useState<string[]>([]);
+function CatalogView() {
+  const { t, lang } = useI18n();
+  const { categories, geo: detectedGeo, ready: catsReady, label } = useCategories();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // The URL is the source of truth for q / category / sub, so the header search
+  // and category links can drive this page.
+  const urlQ = searchParams.get("q") || "";
+  const category = searchParams.get("category") || "";
+  const sub = searchParams.get("sub") || "";
+
+  const [query, setQuery] = useState(urlQ);
+  const lastWritten = useRef(urlQ);
+  const [geoMode, setGeoMode] = useState<GeoMode>(() => (searchParams.get("geo") ? "custom" : "auto"));
+  const [geos, setGeos] = useState<string[]>(() => (searchParams.get("geo") || "").split(",").filter(Boolean));
   const [sort, setSort] = useState<SortOption>("relevance");
   const [geoSearch, setGeoSearch] = useState("");
+  const [adEvery, setAdEvery] = useState(8);
 
   const [items, setItems] = useState<Offer[]>([]);
   const [total, setTotal] = useState(0);
@@ -82,23 +95,75 @@ function CatalogView() {
   const requestId = useRef(0);
   const sentinel = useRef<HTMLDivElement>(null);
 
+  const setParams = useCallback(
+    (patch: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v) params.set(k, v);
+        else params.delete(k);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  // External URL change (e.g. header search) → input.
   useEffect(() => {
-    const id = setTimeout(() => setDebouncedQuery(query), 350);
+    if (urlQ !== lastWritten.current) {
+      lastWritten.current = urlQ;
+      setQuery(urlQ);
+    }
+  }, [urlQ]);
+
+  // Typing → debounced URL update.
+  useEffect(() => {
+    const term = query.trim();
+    if (term === lastWritten.current.trim()) return;
+    const id = setTimeout(() => {
+      lastWritten.current = term;
+      setParams({ q: term });
+    }, 350);
     return () => clearTimeout(id);
-  }, [query]);
+  }, [query, setParams]);
+
+  useEffect(() => {
+    api.get<{ catalog_ad_every?: string | number }>("/api/settings/public").then((res) => {
+      if (res.ok && res.data) {
+        const n = Number(res.data.catalog_ad_every);
+        if (Number.isFinite(n) && n >= 2) setAdEvery(Math.round(n));
+      } else {
+        console.error("[catalog] public settings unavailable, ad every 8 cards:", res.error);
+      }
+    });
+  }, []);
+
+  const autoGeo = detectedGeo && GEO_CODES.includes(detectedGeo) ? detectedGeo : "";
+  const effectiveGeos = useMemo(
+    () => (geoMode === "custom" ? geos : geoMode === "auto" && autoGeo ? [autoGeo] : []),
+    [geoMode, geos, autoGeo]
+  );
+
+  const selectCategory = (key: string) => {
+    if (key) countCategoryView(key);
+    console.log(`[catalog] category → ${key || "all"}`);
+    setParams({ category: key, sub: "" });
+  };
 
   const queryString = useCallback(
     (offset: number) => {
       const params = new URLSearchParams();
-      if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
-      if (cats.length) params.set("categories", cats.join(","));
-      if (geos.length) params.set("geos", geos.join(","));
+      if (urlQ.trim()) params.set("q", urlQ.trim());
+      if (category) params.set("categories", category);
+      if (sub) params.set("sub", sub);
+      if (effectiveGeos.length) params.set("geos", effectiveGeos.join(","));
       params.set("sort", sort);
+      params.set("lang", lang);
       params.set("offset", String(offset));
       params.set("limit", String(PAGE_SIZE));
       return params.toString();
     },
-    [debouncedQuery, cats, geos, sort]
+    [urlQ, category, sub, effectiveGeos, sort, lang]
   );
 
   const loadFirstPage = useCallback(() => {
@@ -124,10 +189,11 @@ function CatalogView() {
     });
   }, [queryString]);
 
-  // Reload from the first page whenever a filter changes.
+  // Reload from the first page whenever a filter changes (wait for the GEO detection first).
   useEffect(() => {
+    if (!catsReady) return;
     loadFirstPage();
-  }, [loadFirstPage]);
+  }, [loadFirstPage, catsReady]);
 
   // …and again when the visitor returns to a tab that was left idle, so the
   // list always matches what the server currently holds.
@@ -163,17 +229,26 @@ function CatalogView() {
     return () => observer.disconnect();
   }, [loadMore]);
 
-  const toggleIn = (list: string[], setList: (v: string[]) => void, value: string) =>
-    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  const toggleGeo = (code: string) => {
+    const base = geoMode === "custom" ? geos : effectiveGeos;
+    const next = base.includes(code) ? base.filter((g) => g !== code) : [...base, code];
+    setGeos(next);
+    setGeoMode(next.length ? "custom" : "all");
+  };
 
-  const activeCount = cats.length + geos.length;
+  const activeCount = (category ? 1 : 0) + (sub ? 1 : 0) + (geoMode === "custom" ? geos.length : 0);
 
   const clearAll = () => {
-    setCats([]);
     setGeos([]);
+    setGeoMode("auto");
     setQuery("");
+    lastWritten.current = "";
     setSort("relevance");
+    setParams({ q: "", category: "", sub: "", geo: "" });
   };
+
+  const activeCategory = categories.find((c) => c.key === category);
+  const subfilters = category === "ai" ? (activeCategory?.subfilters.length ? activeCategory.subfilters : [...AI_SUBFILTERS]) : activeCategory?.subfilters ?? [];
 
   const visibleGeos = useMemo(() => {
     const needle = geoSearch.trim().toLowerCase();
@@ -187,7 +262,7 @@ function CatalogView() {
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
       <div className="mb-5">
         <h1 className="font-display text-2xl font-extrabold text-white sm:text-3xl">
-          {t("nav_catalog")}
+          {activeCategory ? `${activeCategory.emoji} ${label(activeCategory.key)}` : t("nav_catalog")}
         </h1>
         <p className="mt-1 text-sm text-white/45">{t("brand_tagline")}</p>
       </div>
@@ -269,9 +344,13 @@ function CatalogView() {
                     {t("filters_categories")}
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {CATEGORIES.map((c) => (
-                      <Chip key={c} active={cats.includes(c)} onClick={() => toggleIn(cats, setCats, c)}>
-                        {t(`cat_${c}`)}
+                    <Chip active={!category} onClick={() => selectCategory("")}>
+                      {t("common_all")}
+                    </Chip>
+                    {categories.map((c) => (
+                      <Chip key={c.key} active={category === c.key} onClick={() => selectCategory(c.key)}>
+                        <span className="mr-1">{c.emoji}</span>
+                        {label(c.key)}
                       </Chip>
                     ))}
                   </div>
@@ -288,9 +367,21 @@ function CatalogView() {
                     aria-label={t("filters_geo")}
                     className="mb-3 h-10 w-full rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-white/30 outline-none focus:border-fuchsia-400/50"
                   />
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {autoGeo && (
+                      <Chip active={geoMode === "auto"} onClick={() => setGeoMode("auto")}>
+                        <MapPin className="mr-1 inline h-3 w-3" />
+                        {t("pub_geo_mine", { geo: autoGeo.toUpperCase() })}
+                      </Chip>
+                    )}
+                    <Chip active={geoMode === "all"} onClick={() => setGeoMode("all")}>
+                      <Globe2 className="mr-1 inline h-3 w-3" />
+                      {t("pub_geo_all")}
+                    </Chip>
+                  </div>
                   <div className="flex max-h-64 flex-wrap gap-2 overflow-y-auto pr-1">
                     {visibleGeos.map((code) => (
-                      <Chip key={code} active={geos.includes(code)} onClick={() => toggleIn(geos, setGeos, code)}>
+                      <Chip key={code} active={geoMode === "custom" && geos.includes(code)} onClick={() => toggleGeo(code)}>
                         <span className="mr-1">{GEO_FLAGS[code]}</span>
                         {code === "worldwide" ? t("geo_worldwide") : GEO_NAMES[code]}
                       </Chip>
@@ -325,12 +416,13 @@ function CatalogView() {
 
         {/* Quick category rail */}
         <div className="fp-rail mt-3 flex gap-2 overflow-x-auto">
-          <Chip active={cats.length === 0} onClick={() => setCats([])}>
+          <Chip active={!category} onClick={() => selectCategory("")}>
             {t("common_all")}
           </Chip>
-          {CATEGORIES.map((c) => (
-            <Chip key={c} active={cats.includes(c)} onClick={() => toggleIn(cats, setCats, c)}>
-              {t(`cat_${c}`)}
+          {categories.map((c) => (
+            <Chip key={c.key} active={category === c.key} onClick={() => selectCategory(c.key)}>
+              <span className="mr-1">{c.emoji}</span>
+              {label(c.key)}
             </Chip>
           ))}
           {activeCount > 0 && (
@@ -344,7 +436,55 @@ function CatalogView() {
             </button>
           )}
         </div>
+
+        {subfilters.length > 0 && (
+          <div className="fp-rail mt-2 flex gap-2 overflow-x-auto">
+            <Chip active={!sub} onClick={() => setParams({ sub: "" })}>
+              {t("pub_sub_all")}
+            </Chip>
+            {subfilters.map((s) => (
+              <Chip key={s} active={sub === s} onClick={() => setParams({ sub: sub === s ? "" : s })}>
+                {t(`pub_sub_${s}`) === `pub_sub_${s}` ? s : t(`pub_sub_${s}`)}
+              </Chip>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+          {geoMode === "auto" && autoGeo ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 font-semibold text-emerald-200 ring-1 ring-inset ring-emerald-400/25">
+                <span>{GEO_FLAGS[autoGeo] ?? "📍"}</span>
+                {t("pub_geo_auto", { geo: GEO_NAMES[autoGeo] || autoGeo.toUpperCase() })}
+              </span>
+              <button type="button" onClick={() => setGeoMode("all")} className="font-bold text-fuchsia-300 hover:text-fuchsia-200">
+                <Globe2 className="mr-1 inline h-3 w-3" />
+                {t("pub_geo_all")}
+              </button>
+            </>
+          ) : geoMode === "all" && autoGeo ? (
+            <button type="button" onClick={() => setGeoMode("auto")} className="inline-flex items-center gap-1 font-bold text-fuchsia-300 hover:text-fuchsia-200">
+              <MapPin className="h-3 w-3" />
+              {t("pub_geo_back", { geo: GEO_NAMES[autoGeo] || autoGeo.toUpperCase() })}
+            </button>
+          ) : geoMode === "custom" ? (
+            <span className="font-semibold text-white/50">
+              {geos.map((g) => `${GEO_FLAGS[g] ?? ""} ${g.toUpperCase()}`).join("  ")}
+            </span>
+          ) : null}
+        </div>
       </div>
+
+      {category === "sex_shop" && (
+        <div className="mb-5">
+          <AdSlot slot="sex_shop" />
+        </div>
+      )}
+      {category === "ai" && (
+        <div className="mb-5">
+          <AdSlot slot="ai_section" />
+        </div>
+      )}
 
       <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/35">
         {loading ? t("loading") : `${total} ${t("offers_found")}`}
@@ -379,7 +519,14 @@ function CatalogView() {
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((offer, i) => (
-              <OfferCard key={offer._id} offer={offer} index={i} />
+              <React.Fragment key={offer._id}>
+                <OfferCard offer={offer} index={i} />
+                {(i + 1) % adEvery === 0 && i + 1 < items.length + (hasMore ? 1 : 0) && (
+                  <div className="col-span-full">
+                    <AdSlot slot="catalog_inline" />
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
 

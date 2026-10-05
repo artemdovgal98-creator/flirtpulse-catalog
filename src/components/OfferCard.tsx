@@ -1,16 +1,23 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Heart, ExternalLink, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Heart, ExternalLink, Sparkles, Flame, TrendingUp, Scale, Info } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useFavorites } from "@/components/FavoritesProvider";
+import { useCompare } from "@/components/CompareProvider";
+import { useCategories } from "@/components/CategoriesProvider";
+import { pushRecent } from "@/lib/recent";
 import { getVisitorId } from "@/lib/visitor";
 import {
   CATEGORY_GRADIENT,
   CATEGORY_DOT,
+  COLOR_DOT,
+  COLOR_GRADIENT,
   GEO_FLAGS,
   GEO_NAMES,
   offerImages,
+  goPath,
   type Offer,
 } from "@/lib/catalog";
 import { COMPANY_BY_NAME } from "@/data/companies";
@@ -48,7 +55,10 @@ function GeoStrip({ geo }: { geo: string[] }) {
 export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }) {
   const { t, lang } = useI18n();
   const { isSaved, toggle } = useFavorites();
+  const compare = useCompare();
+  const { get: getCategory, label } = useCategories();
   const saved = isSaved(offer._id);
+  const compared = compare.has(offer._id);
   const [slide, setSlide] = useState(0);
   const [visitorId, setVisitorId] = useState("");
 
@@ -62,12 +72,19 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
   // Company cards carry a square logo, not a photo: it must be shown whole and
   // at full brightness instead of being cropped and dimmed like a cover image.
   const company = COMPANY_BY_NAME[offer.name?.toLowerCase() ?? ""];
-  const isNew =
-    offer.launch_date != null &&
-    Date.now() - new Date(offer.launch_date).getTime() < 1000 * 60 * 60 * 24 * 90;
+  const badges = offer.badges ?? [];
+  const title = offer.short_name || offer.name;
+  const gradientFor = (key: string) =>
+    CATEGORY_GRADIENT[key] ?? COLOR_GRADIENT[getCategory(key)?.color ?? ""] ?? "from-fuchsia-500 to-indigo-600";
+  const dotFor = (key: string) => CATEGORY_DOT[key] ?? COLOR_DOT[getCategory(key)?.color ?? ""] ?? "bg-fuchsia-400";
 
-  // The real destination stays on the server — visitors always go through /go/{id}.
-  const target = `/go/${offer._id}?v=${encodeURIComponent(visitorId || "anonymous")}&lang=${lang}`;
+  // The real destination stays on the server — visitors always go through the tracking path.
+  const target = `${goPath(offer)}?v=${encodeURIComponent(visitorId || "anonymous")}&lang=${lang}`;
+  const details = `/offer/${offer._id}`;
+  const onOpen = () => {
+    console.log(`[offer-card] open ${offer._id} via ${goPath(offer)}`);
+    pushRecent(offer._id, categories);
+  };
 
   return (
     <article
@@ -75,6 +92,7 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
       style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
     >
       <div className="relative h-32 overflow-hidden">
+        <Link href={details} aria-label={title} className="absolute inset-0 z-[1]" />
         {company ? (
           <div
             className={cn(
@@ -92,12 +110,12 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
         ) : cover ? (
           <img
             src={cover}
-            alt={offer.name}
+            alt={title}
             loading="lazy"
             className="h-full w-full object-cover opacity-55 transition duration-500 group-hover:scale-110 group-hover:opacity-75"
           />
         ) : (
-          <div className={cn("h-full w-full bg-gradient-to-br", CATEGORY_GRADIENT[primary])} />
+          <div className={cn("h-full w-full bg-gradient-to-br", gradientFor(primary))} />
         )}
         <div
           className={cn(
@@ -106,15 +124,25 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
           )}
         />
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+        <div className="pointer-events-none absolute left-3 right-14 top-3 z-[2] flex flex-wrap gap-1.5">
           {offer.is_featured === "yes" && (
             <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-black">
               <Sparkles className="h-3 w-3" /> {t("featured")}
             </span>
           )}
-          {isNew && (
-            <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-cyan-200 ring-1 ring-inset ring-cyan-300/30">
-              {t("new_badge")}
+          {badges.includes("new") && (
+            <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-cyan-200 ring-1 ring-inset ring-cyan-300/30 backdrop-blur">
+              {t("pub_badge_new")}
+            </span>
+          )}
+          {badges.includes("hit_week") && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/25 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-rose-100 ring-1 ring-inset ring-rose-300/35 backdrop-blur">
+              <Flame className="h-3 w-3" /> {t("pub_badge_hit")}
+            </span>
+          )}
+          {badges.includes("trending") && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/25 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-violet-100 ring-1 ring-inset ring-violet-300/35 backdrop-blur">
+              <TrendingUp className="h-3 w-3" /> {t("pub_badge_trending")}
             </span>
           )}
         </div>
@@ -125,7 +153,7 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
           aria-label={saved ? t("saved") : t("save")}
           aria-pressed={saved}
           className={cn(
-            "absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90",
+            "absolute right-3 top-3 z-[2] inline-flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90",
             saved
               ? "border-rose-400/50 bg-rose-500/25 text-rose-300 shadow-[0_0_18px_-4px_rgba(244,63,94,0.9)]"
               : "border-white/15 bg-black/35 text-white/70 hover:border-rose-400/50 hover:text-rose-300"
@@ -135,12 +163,12 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
         </button>
 
         {images.length > 1 && (
-          <div className="absolute bottom-2 right-3 flex items-center gap-1">
+          <div className="absolute bottom-2 right-3 z-[2] flex items-center gap-1">
             {images.map((_, i) => (
               <button
                 key={i}
                 type="button"
-                aria-label={`${offer.name} — ${i + 1}`}
+                aria-label={`${title} — ${i + 1}`}
                 onClick={() => setSlide(i)}
                 className={cn(
                   "h-1.5 rounded-full transition-all",
@@ -151,9 +179,9 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+        <div className="pointer-events-none absolute bottom-3 left-3 right-16 flex items-end justify-between gap-2">
           <h3 className="font-display text-[15px] font-bold leading-tight text-white drop-shadow-lg">
-            {offer.name}
+            {title}
           </h3>
         </div>
       </div>
@@ -165,8 +193,8 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
               key={c}
               className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/75 ring-1 ring-inset ring-white/10"
             >
-              <span className={cn("h-1.5 w-1.5 rounded-full", CATEGORY_DOT[c])} />
-              {t(`cat_${c}`)}
+              <span className={cn("h-1.5 w-1.5 rounded-full", dotFor(c))} />
+              {label(c)}
             </span>
           ))}
         </div>
@@ -179,12 +207,35 @@ export function OfferCard({ offer, index = 0 }: { offer: Offer; index?: number }
 
         <GeoStrip geo={offer.geo ?? []} />
 
-        <div className="mt-auto flex items-center justify-end gap-3 border-t border-white/5 pt-3">
+        <div className="mt-auto flex items-center gap-2 border-t border-white/5 pt-3">
+          <button
+            type="button"
+            onClick={() => compare.toggle(offer._id)}
+            aria-pressed={compared}
+            aria-label={t("pub_compare")}
+            title={t("pub_compare")}
+            className={cn(
+              "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition active:scale-90",
+              compared
+                ? "border-indigo-300/60 bg-indigo-500/25 text-indigo-100 shadow-[0_0_16px_-4px_rgba(129,140,248,0.9)]"
+                : "border-white/10 bg-white/[0.04] text-white/60 hover:border-indigo-300/40 hover:text-white"
+            )}
+          >
+            <Scale className="h-3.5 w-3.5" />
+          </button>
+          <Link
+            href={details}
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 text-[11px] font-bold text-white/70 transition hover:border-white/25 hover:text-white"
+          >
+            <Info className="h-3.5 w-3.5" />
+            {t("pub_details")}
+          </Link>
           <a
             href={target}
             target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-[0_10px_28px_-12px_rgba(217,70,239,0.95)] transition hover:brightness-110 active:scale-95"
+            rel="noopener noreferrer nofollow sponsored"
+            onClick={onOpen}
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-[0_10px_28px_-12px_rgba(217,70,239,0.95)] transition hover:brightness-110 active:scale-95"
           >
             {t("open_offer")}
             <ExternalLink className="h-3.5 w-3.5" />
