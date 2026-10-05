@@ -226,3 +226,11 @@ English elsewhere.
 
 Accounts are only for favourites, preferences and chat history. The admin panel needs **no
 account** — open **Профиль**, tap "Панель администратора" and enter `admin 777`.
+
+## Stage 1 + Stage 2 extension (2026-10)
+See `project-docs/IMPLEMENTATION-BRIEF.md` for tables, helpers and file ownership.
+- Tracking: `/go/{category}/{networkSlug|direct}/{offerId}` → click (click_id, session, GEO, SubID, unique) → 302 to the registered link only.
+- Postback: `/api/postback/{networkSlug}?secret=…&click_id=…&transaction_id=…&payout=…&currency=…&status=…` (idempotent per transaction; no payout → pending_pricing).
+- Admin tabs: Dashboard, Showcases (draft → review → active → archived, pre-publish checks, bulk), Categories, Integrations, Ads, Ticker, Notifications, Reviews, Translations, Log, Settings (stats reset with double confirmation, Telegram, roles).
+- i18n: en/ru static dictionaries (`src/lib/i18n-dicts.ts` + `src/lib/i18n-extra/*`), other 10 languages translated by `/api/i18n/[lang]` and cached in `ui_translation`; showcases in `offer_translation`.
+- Public: age gate, ticker, bell + web push (payload-less, VAPID keys in app_setting), ads in sandboxed iframes, PWA, quiz, for-you, compare, collections `/c/{token}`, reviews, referral counter.

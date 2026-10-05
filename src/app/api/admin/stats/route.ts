@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { totalumSdk } from "@/lib/totalum";
-import { getAdminGuard } from "@/lib/admin";
+import { getAdminGuard, forbidden } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +29,7 @@ async function countRecords(table: string, filter?: Record<string, any>): Promis
 export async function GET() {
   try {
     const { isAdmin } = await getAdminGuard();
-    if (!isAdmin) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    if (!isAdmin) return forbidden();
 
     const now = Date.now();
     const onlineSince = new Date(now - ONLINE_WINDOW_MS).toISOString();

@@ -3,7 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LayoutGrid, Sparkles, User, Search, Globe, Check } from "lucide-react";
+import { Heart, LayoutGrid, Sparkles, User, Globe, Check } from "lucide-react";
+import { NotificationBell } from "@/components/public/NotificationBell";
+import { SearchBox } from "@/components/public/SearchBox";
+import { Ticker } from "@/components/public/Ticker";
+import { AgeGate } from "@/components/public/AgeGate";
+import { PwaRegister } from "@/components/public/PwaRegister";
+import { BottomBanner } from "@/components/public/BottomBanner";
+import { CompareBar } from "@/components/engage/CompareBar";
+import { RefCapture } from "@/components/engage/RefCapture";
 import { useI18n, LANGUAGES, type Lang } from "@/lib/i18n";
 import { useFavorites } from "@/components/FavoritesProvider";
 import {
@@ -76,23 +84,26 @@ function TopHeader() {
 
   return (
     <header className="fp-glass sticky top-0 z-40 border-b border-white/10">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
-        <Link href="/" className="shrink-0 transition hover:opacity-90">
-          <BrandLogo />
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
+        <Link href="/" aria-label="FlirtPulse" className="shrink-0 transition hover:opacity-90">
+          <span className="sm:hidden">
+            <BrandLogo compact />
+          </span>
+          <span className="hidden sm:inline">
+            <BrandLogo />
+          </span>
         </Link>
 
-        <Link
-          href="/catalog"
-          className="group ml-auto flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-xs text-white/50 transition hover:border-fuchsia-400/40 hover:text-white/80 sm:max-w-xs"
-        >
-          <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{t("search_placeholder")}</span>
-        </Link>
+        <div className="ml-auto flex min-w-0 flex-1 justify-end">
+          <SearchBox />
+        </div>
+
+        <NotificationBell />
 
         <Link
           href="/favorites"
           aria-label={t("nav_favorites")}
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:border-rose-400/50 hover:text-rose-300"
+          className="relative hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:border-rose-400/50 hover:text-rose-300 sm:inline-flex"
         >
           <Heart className="h-4 w-4" />
           {ids.length > 0 && (
@@ -171,9 +182,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative z-10 flex min-h-screen flex-col">
+      <PwaRegister />
+      <RefCapture />
       <TopHeader />
-      <main className="flex-1 pb-24">{children}</main>
+      <Ticker />
+      <main className="flex-1 pb-40">{children}</main>
+      <CompareBar />
+      <BottomBanner />
       <BottomNav />
+      <AgeGate />
     </div>
   );
 }

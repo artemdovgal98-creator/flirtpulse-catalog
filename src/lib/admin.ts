@@ -92,6 +92,8 @@ export interface AdminGuardResult {
   isAdmin: boolean;
   /** True when the signed-in user is also listed in the `admin_user` table. */
   isListedAdmin: boolean;
+  /** Server-side role of the signed-in user ("admin" / "editor"), or "password" for the unlock token. */
+  role: string | null;
 }
 
 /**
@@ -131,22 +133,69 @@ export async function getAdminGuard(): Promise<AdminGuardResult> {
     }
 
     let isListedAdmin = false;
+    let listedRole: string | null = null;
     if (userId) {
       const result = await totalumSdk.crud.query("admin_user", {
         _filter: { user: userId },
         _limit: 1,
       } as any);
       if (result.errors) console.error("[admin-guard] admin_user lookup errors:", result.errors);
-      isListedAdmin = ((result.data as any[]) || []).length > 0;
+      const row = ((result.data as any[]) || [])[0];
+      isListedAdmin = Boolean(row);
+      listedRole = row?.role ?? null;
     }
 
+    // Role check happens here, on the server: a signed-in account whose
+    // `admin_user.role` is admin/editor gets the panel without the password.
+    const hasRole = listedRole === "admin" || listedRole === "editor";
+    const isAdmin = unlocked || hasRole;
+    const role = hasRole ? listedRole : unlocked ? "password" : null;
+
     console.log(
-      `[admin-guard] user=${userId ?? "guest"} unlocked=${unlocked} listedAdmin=${isListedAdmin}`
+      `[admin-guard] user=${userId ?? "guest"} unlocked=${unlocked} role=${listedRole ?? "-"} isAdmin=${isAdmin}`
     );
 
-    return { userId, email, isAdmin: unlocked, isListedAdmin };
+    return { userId, email, isAdmin, isListedAdmin, role };
   } catch (err) {
     console.error("[admin-guard] guard failed:", err);
-    return { userId: null, email: null, isAdmin: false, isListedAdmin: false };
+    return { userId: null, email: null, isAdmin: false, isListedAdmin: false, role: null };
   }
+}
+
+/**
+ * Writes one row to the admin action journal. Logging must never break the
+ * action itself, but a failure is still reported in the server log.
+ */
+export async function logAdmin(
+  guard: AdminGuardResult,
+  action: string,
+  entity: string,
+  entityId: string,
+  summary: string,
+  details?: Record<string, any>
+): Promise<void> {
+  try {
+    const hdrs = await headers();
+    const record: Record<string, any> = {
+      action,
+      entity,
+      entity_id: entityId,
+      summary: summary.slice(0, 240),
+      details: JSON.stringify(details ?? {}),
+      actor: guard.email || (guard.role === "password" ? "admin (password)" : "admin"),
+      ip_address: hdrs.get("cf-connecting-ip") || hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
+      logged_at: new Date().toISOString(),
+    };
+    if (guard.userId) record.user = guard.userId;
+    const res = await totalumSdk.crud.createRecord("admin_log", record as any);
+    if (res.errors) console.error("[admin-log] could not write journal entry:", res.errors);
+    else console.log(`[admin-log] ${action} ${entity}/${entityId}: ${summary}`);
+  } catch (err) {
+    console.error("[admin-log] journal write failed:", err);
+  }
+}
+
+/** Shared 403 answer for admin routes. */
+export function forbidden() {
+  return Response.json({ ok: false, error: "Forbidden" }, { status: 403 });
 }

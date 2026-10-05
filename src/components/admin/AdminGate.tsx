@@ -1,12 +1,41 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { KeyRound, Loader2, Lock, ShieldCheck, Unlock } from "lucide-react";
+import {
+  Bell, FileText, FolderTree, KeyRound, Languages, LayoutDashboard, Loader2, Lock, Megaphone, MessageSquare,
+  Network, Rss, Settings, ShieldCheck, Store, Unlock,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api, setAdminToken } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { AdminStats } from "@/components/admin/AdminStats";
-import { ShowcaseManager } from "@/components/admin/ShowcaseManager";
+import { cn } from "@/lib/utils";
+import { Dashboard } from "@/components/admin/Dashboard";
+import { ShowcasesPanel } from "@/components/admin/ShowcasesPanel";
+import { CategoriesPanel } from "@/components/admin/CategoriesPanel";
+import { LogPanel } from "@/components/admin/LogPanel";
+import { SettingsPanel } from "@/components/admin/SettingsPanel";
+import { NetworksPanel } from "@/components/admin/NetworksPanel";
+import { AdsPanel } from "@/components/admin/AdsPanel";
+import { TickerPanel } from "@/components/admin/TickerPanel";
+import { NotificationsPanel } from "@/components/admin/NotificationsPanel";
+import { ReviewsPanel } from "@/components/admin/ReviewsPanel";
+import { TranslationsPanel } from "@/components/admin/TranslationsPanel";
+
+const TABS = [
+  { key: "dashboard", icon: LayoutDashboard },
+  { key: "showcases", icon: Store },
+  { key: "categories", icon: FolderTree },
+  { key: "networks", icon: Network },
+  { key: "ads", icon: Megaphone },
+  { key: "ticker", icon: Rss },
+  { key: "notifications", icon: Bell },
+  { key: "reviews", icon: MessageSquare },
+  { key: "translations", icon: Languages },
+  { key: "log", icon: FileText },
+  { key: "settings", icon: Settings },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+const TAB_STORAGE = "fp_admin_tab";
 
 /**
  * Password gate for the admin dashboard.
@@ -24,9 +53,38 @@ export function AdminGate() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(false);
+  const [canManage, setCanManage] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>("dashboard");
 
   useEffect(() => {
-    api.get<{ isAdmin: boolean }>("/api/admin/me").then((res) => {
+    try {
+      const saved = window.localStorage.getItem(TAB_STORAGE) as TabKey | null;
+      if (saved && TABS.some((x) => x.key === saved)) setTab(saved);
+    } catch {
+      /* storage unavailable (private mode) — default tab is fine */
+    }
+  }, []);
+
+  function selectTab(next: TabKey) {
+    setTab(next);
+    try {
+      window.localStorage.setItem(TAB_STORAGE, next);
+    } catch (err) {
+      console.error("[admin-gate] could not persist the tab:", err);
+    }
+    console.log("[admin-gate] tab:", next);
+  }
+
+  const refreshMe = React.useCallback(async () => {
+    const res = await api.get<{ isAdmin: boolean; canManage?: boolean; role?: string | null }>("/api/admin/me");
+    setCanManage(Boolean(res.ok && res.data?.canManage));
+    setRole(res.data?.role ?? null);
+    return res;
+  }, []);
+
+  useEffect(() => {
+    refreshMe().then((res) => {
       const isAdmin = Boolean(res.ok && res.data?.isAdmin);
       // A stored token the server no longer accepts is dead weight — drop it so
       // the password form is shown instead of a panel that answers "Forbidden".
@@ -61,6 +119,7 @@ export function AdminGate() {
     setAdminToken(res.data?.token ?? "");
 
     setPassword("");
+    await refreshMe();
     setUnlocked(true);
     setOpen(false);
     toast.success(t("admin_unlocked_toast"));
@@ -93,9 +152,14 @@ export function AdminGate() {
   if (unlocked) {
     return (
       <div className="mt-5">
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3">
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] px-4 py-3">
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-300" />
           <p className="text-xs font-bold text-emerald-200">{t("admin_open_panel")}</p>
+          {role && (
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-extrabold uppercase text-white/60">
+              {t(`ap_role_${role}`)}
+            </span>
+          )}
           <button
             type="button"
             onClick={lock}
@@ -105,8 +169,45 @@ export function AdminGate() {
             {t("admin_lock")}
           </button>
         </div>
-        <AdminStats />
-        <ShowcaseManager />
+
+        <nav
+          aria-label={t("ap_tabs")}
+          className="sticky top-0 z-30 -mx-4 mb-4 overflow-x-auto border-b border-white/5 bg-[#0d0a18]/80 px-4 py-2 backdrop-blur-xl [scrollbar-width:none] sm:mx-0 sm:rounded-2xl sm:border sm:border-white/10 sm:px-2"
+        >
+          <div className="flex w-max gap-1.5">
+            {TABS.map(({ key, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => selectTab(key)}
+                aria-current={tab === key ? "page" : undefined}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition active:scale-95",
+                  tab === key
+                    ? "bg-gradient-to-r from-fuchsia-500 to-indigo-500 text-white shadow-[0_8px_24px_-12px_rgba(217,70,239,0.9)]"
+                    : "text-white/55 hover:bg-white/5 hover:text-white"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t(`ap_tab_${key}`)}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        <div key={tab} className="fp-rise">
+          {tab === "dashboard" && <Dashboard />}
+          {tab === "showcases" && <ShowcasesPanel canManage={canManage} />}
+          {tab === "categories" && <CategoriesPanel canManage={canManage} />}
+          {tab === "networks" && <NetworksPanel />}
+          {tab === "ads" && <AdsPanel />}
+          {tab === "ticker" && <TickerPanel />}
+          {tab === "notifications" && <NotificationsPanel />}
+          {tab === "reviews" && <ReviewsPanel />}
+          {tab === "translations" && <TranslationsPanel />}
+          {tab === "log" && <LogPanel />}
+          {tab === "settings" && <SettingsPanel />}
+        </div>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { totalumSdk } from "@/lib/totalum";
-import { getAdminGuard } from "@/lib/admin";
+import { getAdminGuard, forbidden, logAdmin } from "@/lib/admin";
+import { canManage, managerOnly } from "@/lib/server/admin-showcases";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -18,10 +19,16 @@ async function runBatched<T>(items: T[], task: (item: T) => Promise<void>) {
  * and resets `click_count` on every showcase. Admins only, and irreversible —
  * the UI asks for a confirmation before calling it.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const { isAdmin } = await getAdminGuard();
-    if (!isAdmin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    const guard = await getAdminGuard();
+    if (!guard.isAdmin) return forbidden();
+    if (!canManage(guard)) return managerOnly();
+    const body = (await request.json().catch(() => ({}))) as { confirm?: string };
+    // Second confirmation typed by the admin in the Settings panel.
+    if (String(body.confirm || "").trim().toUpperCase() !== "СБРОСИТЬ") {
+      return NextResponse.json({ ok: false, error: "CONFIRMATION_REQUIRED" }, { status: 400 });
+    }
 
     const [clicksResult, sessionsResult, offersResult] = await Promise.all([
       totalumSdk.crud.query("click", { _select: { _id: true }, _limit: 5000 } as any),
@@ -81,6 +88,8 @@ export async function POST() {
     console.log(
       `[API /admin/stats/reset] cleared ${clicks.length} clicks, ${sessions.length} sessions, ${offers.length} counters`
     );
+
+    await logAdmin(guard, "stats_reset", "click", "all", `Statistics reset: ${clicks.length} clicks, ${sessions.length} sessions, ${offers.length} counters`);
 
     return NextResponse.json({
       ok: true,

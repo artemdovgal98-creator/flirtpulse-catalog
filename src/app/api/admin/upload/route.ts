@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { totalumSdk } from "@/lib/totalum";
-import { getAdminGuard } from "@/lib/admin";
+import { getAdminGuard, forbidden, logAdmin } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -15,10 +15,8 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/av
  */
 export async function POST(request: Request) {
   try {
-    const { isAdmin } = await getAdminGuard();
-    if (!isAdmin) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    }
+    const guard = await getAdminGuard();
+    if (!guard.isAdmin) return forbidden();
 
     const form = await request.formData();
     const files = form.getAll("files").filter((f): f is File => f instanceof File);
@@ -73,6 +71,7 @@ export async function POST(request: Request) {
       console.log(`[API /admin/upload] stored ${file.name} (${(file.size / 1024).toFixed(0)} KB) as ${fileNameId}`);
     }
 
+    await logAdmin(guard, "upload", "file", uploaded.map((f) => f.name).join(",").slice(0, 200), `Uploaded ${uploaded.length} image(s)`);
     return NextResponse.json({ ok: true, data: { files: uploaded } });
   } catch (err: any) {
     console.error("[API ERROR] POST /api/admin/upload", err);

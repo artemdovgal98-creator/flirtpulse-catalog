@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { ADMIN_COOKIE, createAdminToken, isAdminPassword } from "@/lib/admin";
+import { ADMIN_COOKIE, createAdminToken, isAdminPassword, logAdmin, type AdminGuardResult } from "@/lib/admin";
+
+const PASSWORD_ACTOR: AdminGuardResult = { userId: null, email: null, isAdmin: true, isListedAdmin: false, role: "password" };
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
       maxAge: token.maxAge,
     });
 
+    await logAdmin(PASSWORD_ACTOR, "unlock", "admin_session", "-", "Admin panel unlocked with the password");
     console.log(`[API /admin/unlock] admin panel unlocked (secure cookie=${secure})`);
     return response;
   } catch (err: any) {
@@ -69,6 +72,7 @@ export async function DELETE(request: Request) {
       path: "/",
       maxAge: 0,
     });
+    await logAdmin(PASSWORD_ACTOR, "lock", "admin_session", "-", "Admin panel locked");
     console.log("[API /admin/unlock] admin panel locked");
     return response;
   } catch (err: any) {
